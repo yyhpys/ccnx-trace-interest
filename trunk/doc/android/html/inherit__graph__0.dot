@@ -1,0 +1,8 @@
+digraph G
+{
+  bgcolor="transparent";
+  edge [fontname="FreeSans",fontsize=10,labelfontname="FreeSans",labelfontsize=10];
+  node [fontname="FreeSans",fontsize=10,shape=record];
+  rankdir=LR;
+  Node1 [label="org.ccnx.android.apps.chat.CcnxChatMain",height=0.2,width=0.4,color="black",URL="$classorg_1_1ccnx_1_1android_1_1apps_1_1chat_1_1_ccnx_chat_main.html",tooltip="Initial screen to make configuration choices."];
+}

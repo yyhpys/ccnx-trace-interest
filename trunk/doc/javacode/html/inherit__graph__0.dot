@@ -1,0 +1,16 @@
+digraph G
+{
+  bgcolor="transparent";
+  edge [fontname="FreeSans",fontsize=10,labelfontname="FreeSans",labelfontsize=10];
+  node [fontname="FreeSans",fontsize=10,shape=record];
+  rankdir=LR;
+  Node1 [label="org.ccnx.ccn.CCNBase",height=0.2,width=0.4,color="black",URL="$interfaceorg_1_1ccnx_1_1ccn_1_1_c_c_n_base.html",tooltip="This is the lowest-level interface to CCN, and describes in its entirety, the interface..."];
+  Node1 -> Node2 [dir=back,color="midnightblue",fontsize=10,style="solid",fontname="FreeSans"];
+  Node2 [label="org.ccnx.ccn.CCNHandle",height=0.2,width=0.4,color="black",URL="$classorg_1_1ccnx_1_1ccn_1_1_c_c_n_handle.html",tooltip="The core class encapsulating a Java interface to the CCN network."];
+  Node2 -> Node3 [dir=back,color="midnightblue",fontsize=10,style="solid",fontname="FreeSans"];
+  Node3 [label="org.ccnx.ccn.test.AssertionCCNHandle",height=0.2,width=0.4,color="black",URL="$classorg_1_1ccnx_1_1ccn_1_1test_1_1_assertion_c_c_n_handle.html",tooltip="This class is designed to handle actually erroring in assertions that fail within..."];
+  Node2 -> Node4 [dir=back,color="midnightblue",fontsize=10,style="solid",fontname="FreeSans"];
+  Node4 [label="org.ccnx.ccn.test.CCNLibraryTestHarness",height=0.2,width=0.4,color="black",URL="$classorg_1_1ccnx_1_1ccn_1_1test_1_1_c_c_n_library_test_harness.html",tooltip="An enhanced CCNHandle used for logging/tracking during tests."];
+  Node2 -> Node5 [dir=back,color="midnightblue",fontsize=10,style="solid",fontname="FreeSans"];
+  Node5 [label="org.ccnx.ccn.test.profiles.versioning.VersioningHelper.SinkHandle",height=0.2,width=0.4,color="black",URL="$classorg_1_1ccnx_1_1ccn_1_1test_1_1profiles_1_1versioning_1_1_versioning_helper_1_1_sink_handle.html",tooltip="Track interests."];
+}
