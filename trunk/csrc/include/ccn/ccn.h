@@ -47,6 +47,8 @@
 #define CCN_INTEREST_LIFETIME_SEC 4
 #define CCN_INTEREST_LIFETIME_MICROSEC (CCN_INTEREST_LIFETIME_SEC * 1000000)
 
+#define TRACE_INTEREST_FLAG "trace_interest_flag"
+
 /* opaque declarations */
 struct ccn;
 struct ccn_pkey;

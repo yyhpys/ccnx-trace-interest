@@ -5041,7 +5041,7 @@ is_interest_for_trace(unsigned char *msg, size_t size){
     char* parsed_name;
     char* flag_pointer;
     parsed_name = get_interest_name(msg, size);
-    flag_pointer = strstr(parsed_name, "trace_interest_flag");
+    flag_pointer = strstr(parsed_name, TRACE_INTEREST_FLAG);
     if(flag_pointer != NULL){
         return 1;
     }
