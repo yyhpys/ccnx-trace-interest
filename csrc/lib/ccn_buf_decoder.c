@@ -351,7 +351,7 @@ ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *comp
             char* current_comp = ccn_charbuf_as_string(namecomp_ccnb);
 
             //TRACE_FLAG CHECK
-            if (strcmp("TRACE_FLAG", current_comp) != 0) {
+            if (strcmp(TRACE_INTEREST_FLAG, current_comp) != 0) {
                 if (components != NULL)
                     ccn_indexbuf_append_element(components, temp_index);
                 ncomp += 1;
