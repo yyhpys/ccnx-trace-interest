@@ -3201,7 +3201,9 @@ propagate_interest(struct ccnd_handle *h,
                    struct face *face,
                    unsigned char *msg,
                    struct ccn_parsed_interest *pi,
-                   struct nameprefix_entry *npe)
+                   struct nameprefix_entry *npe,
+                   struct ccn_parsed_interest *pi_flagged,
+                   struct nameprefix_entry *npe_flagged)
 {
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
@@ -3218,7 +3220,7 @@ propagate_interest(struct ccnd_handle *h,
     int extra_delay = 0;
     struct ccn_indexbuf *outbound = NULL;
     intmax_t lifetime;
-    
+
     lifetime = ccn_interest_lifetime(msg, pi);
     outbound = get_outbound_faces(h, face, msg, pi, npe);
     if (outbound->n != 0) {
@@ -3526,6 +3528,15 @@ static void
 process_incoming_interest(struct ccnd_handle *h, struct face *face,
                           unsigned char *msg, size_t size)
 {
+	/* interest trace */
+	int for_trace;
+	struct ccn_parsed_interest parsed_interest_flagged = {0};
+	struct ccn_parsed_interest *pi_flagged = &parsed_interest_flagged;
+	struct ccn_indexbuf *comps_flagged;
+	//struct ccn_charbuf *msg_charbuf;
+	//unsigned char *msg_flagged;
+	struct nameprefix_entry *npe_flagged = NULL;
+	/* ---- end ---- */
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
     struct ccn_parsed_interest parsed_interest = {0};
@@ -3540,15 +3551,6 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
     struct content_entry *content = NULL;
     struct content_entry *last_match = NULL;
     struct ccn_indexbuf *comps = indexbuf_obtain(h);
-
-//debug
-/*
-    char* parsed_name;
-    parsed_name = get_interest_name(msg, size);
-    printf("//PROCESS_INCOMING_INTEREST - NAME: %s\n", parsed_name);
-*/
-//
-
     if (size > 65535)
         res = -__LINE__;
     else
@@ -3603,12 +3605,40 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
         }
         namesize = comps->buf[pi->prefix_comps] - comps->buf[0];
         h->interests_accepted += 1;
-        s_ok = (pi->answerfrom & CCN_AOK_STALE) != 0;
-        matched = 0;
+ 
         hashtb_start(h->nameprefix_tab, e);
         res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
         npe = e->data;
-        if (npe == NULL)
+
+		s_ok = (pi->answerfrom & CCN_AOK_STALE) != 0;
+        matched = 0;
+
+		for_trace = is_interest_for_trace(msg, size);
+		if (for_trace) {
+			/* swap */
+			parsed_interest_flagged = parsed_interest;
+			memset(pi, 0, sizeof(struct ccn_parsed_interest));
+			comps_flagged = comps;
+			comps = ccn_indexbuf_create();
+			npe_flagged = npe;
+			npe = NULL;
+			/*
+			msg_flagged = msg;
+			msg_charbuf = ccn_charbuf_create();
+			ccn_charbuf_append(msg_charbuf, msg_flagged, size);
+			msg = msg_charbuf->buf;
+			*/
+
+			/* interest parsing without trace flag */
+			ccn_parse_interest_without_flag(msg, size, pi, comps);
+
+			/* name prefix seek without trace flag */
+			hashtb_start(h->nameprefix_tab, e);
+			res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
+			npe = e->data;
+		}
+
+        if (npe == NULL | npe_flagged == NULL)
             goto Bail;
         if ((npe->flags & CCN_FORW_LOCAL) != 0 &&
             (face->flags & CCN_FACE_GG) == 0) {
@@ -3693,7 +3723,7 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
             }
         }
         if (!matched && pi->scope != 0 && npe != NULL)
-            propagate_interest(h, face, msg, pi, npe);
+            propagate_interest(h, face, msg, pi, npe, pi_flagged, npe_flagged);
     Bail:
         hashtb_end(e);
     }
