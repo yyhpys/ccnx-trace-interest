@@ -40,4 +40,5 @@ ccn_uri_append(struct ccn_charbuf *c,
 /* Conversion from uri to ccnb form */
 int ccn_name_from_uri(struct ccn_charbuf *c, const char *uri);
 
+char* get_interest_name(unsigned char* c, size_t c_size);
 #endif
