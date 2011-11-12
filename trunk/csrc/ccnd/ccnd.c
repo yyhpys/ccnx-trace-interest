@@ -5043,13 +5043,14 @@ ccnd_destroy(struct ccnd_handle **pccnd)
 static int
 is_interest_for_trace(unsigned char *msg, size_t size){
     char* parsed_name;
-    char* flag_pointer;
+    int flag_pointer;
+
     parsed_name = get_interest_name(msg, size);
-    flag_pointer = strstr(parsed_name, TRACE_INTEREST_FLAG);
-    if(flag_pointer != NULL){
-        return 1;
-    }
-    else{
-        return 0;
-    }
+	flag_pointer = strstr(parsed_name,TRACE_INTEREST_FLAG);
+	if(flag_pointer == 0){
+		return 0;
+	}
+	else{
+		return 1;
+	}
 }
