@@ -3538,6 +3538,15 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
     struct content_entry *content = NULL;
     struct content_entry *last_match = NULL;
     struct ccn_indexbuf *comps = indexbuf_obtain(h);
+
+//debug
+/*
+    char* parsed_name;
+    parsed_name = get_interest_name(msg, size);
+    printf("//PROCESS_INCOMING_INTEREST - NAME: %s\n", parsed_name);
+*/
+//
+
     if (size > 65535)
         res = -__LINE__;
     else

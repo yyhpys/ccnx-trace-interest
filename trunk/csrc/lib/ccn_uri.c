@@ -314,3 +314,13 @@ Done:
         return(-1);
     return(s - uri);
 }
+
+
+char*
+get_interest_name(unsigned char* c, size_t c_size)
+{
+    struct ccn_charbuf* ccnb;
+    ccnb = ccn_charbuf_create();
+    ccn_uri_append(ccnb, c, c_size, 1);
+    return ccn_charbuf_as_string(ccnb);
+}

@@ -528,6 +528,13 @@ ccn_parse_interest(const unsigned char *msg, size_t size,
                    struct ccn_parsed_interest *interest,
                    struct ccn_indexbuf *components);
 
+int
+ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
+                   struct ccn_parsed_interest *interest,
+                   struct ccn_indexbuf *components);
+
+
+
 /*
  * Returns the lifetime of the interest in units of 2**(-12) seconds
  * (the same units as timestamps).
@@ -615,6 +622,8 @@ void ccn_digest_ContentObject(const unsigned char *msg,
  * Returns the number of Components in the Name, or -1 if there is an error.
  */
 int ccn_parse_Name(struct ccn_buf_decoder *d, struct ccn_indexbuf *components);
+
+int ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components);
 
 /*
  * ccn_compare_names:

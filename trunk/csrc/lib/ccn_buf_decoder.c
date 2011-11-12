@@ -297,6 +297,66 @@ ccn_parse_Name(struct ccn_buf_decoder *d, struct ccn_indexbuf *components)
                 ccn_indexbuf_append_element(components, d->decoder.token_index);
             ncomp += 1;
             ccn_buf_advance(d);
+//debug
+/*
+const unsigned char *comp = NULL;
+size_t compsize = 0;
+ccn_buf_match_blob(d, &comp, &compsize);
+struct ccn_charbuf* ccnb;
+ccnb = ccn_charbuf_create();
+ccn_uri_append_percentescaped(ccnb, comp, compsize);
+printf("//CCN_PARSE_NAME - COMP: %s\n", comp);
+printf("//CCN_PARSE_NAME - COMP CHANGED: %s\n", ccn_charbuf_as_string(ccnb));
+*/
+//
+
+            if (ccn_buf_match_blob(d, NULL, NULL))
+                ccn_buf_advance(d);
+            ccn_buf_check_close(d);
+        }
+        if (components != NULL)
+            ccn_indexbuf_append_element(components, d->decoder.token_index);
+        ccn_buf_check_close(d);
+    }
+    else
+        d->decoder.state = -__LINE__;
+    if (d->decoder.state < 0)
+        return(-1);
+    else
+        return(ncomp);
+}
+
+
+//inserted_function
+//omit trace flag when parse name
+int
+ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components)
+{
+    int ncomp = 0;   
+
+    if (ccn_buf_match_dtag(d, CCN_DTAG_Name)) {
+	const unsigned char *namecomp = NULL;
+        size_t namecomp_size = 0;
+        struct ccn_charbuf* namecomp_ccnb;
+
+        if (components != NULL) components->n = 0;
+        ccn_buf_advance(d);
+        while (ccn_buf_match_dtag(d, CCN_DTAG_Component)) {
+            int temp_index = d->decoder.token_index;
+            ccn_buf_advance(d);
+
+            ccn_buf_match_blob(d, &namecomp, &namecomp_size);
+            namecomp_ccnb = ccn_charbuf_create();
+            ccn_uri_append_percentescaped(namecomp_ccnb, namecomp, namecomp_size);
+            char* current_comp = ccn_charbuf_as_string(namecomp_ccnb);
+
+            //TRACE_FLAG CHECK
+            if (strcmp("TRACE_FLAG", current_comp) != 0) {
+                if (components != NULL)
+                    ccn_indexbuf_append_element(components, temp_index);
+                ncomp += 1;
+            }
+
             if (ccn_buf_match_blob(d, NULL, NULL))
                 ccn_buf_advance(d);
             ccn_buf_check_close(d);
@@ -671,6 +731,125 @@ ccn_parse_interest(const unsigned char *msg, size_t size,
     interest->magic = magic;
     return (ncomp);
 }
+
+//inserted function
+//create parsed interest without trace flag
+int
+ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
+                   struct ccn_parsed_interest *interest,
+                   struct ccn_indexbuf *components)
+{
+    struct ccn_buf_decoder decoder;
+    struct ccn_buf_decoder *d = ccn_buf_decoder_start(&decoder, msg, size);
+    int magic = 0;
+    int ncomp = 0;
+    int res;
+    if (ccn_buf_match_dtag(d, CCN_DTAG_Interest)) {
+        if (components == NULL) {
+            /* We need to have the component offsets. */
+            components = ccn_indexbuf_create();
+            if (components == NULL) return(-1);
+            res = ccn_parse_interest(msg, size, interest, components);
+            ccn_indexbuf_destroy(&components);
+            return(res);
+        }
+        ccn_buf_advance(d);
+        interest->offset[CCN_PI_B_Name] = d->decoder.element_index;
+        interest->offset[CCN_PI_B_Component0] = d->decoder.index;
+        ncomp = ccn_parse_Name_without_flag(d, components);
+        if (d->decoder.state < 0) {
+            memset(interest->offset, 0, sizeof(interest->offset));
+            return(d->decoder.state);
+        }
+        interest->offset[CCN_PI_E_ComponentLast] = d->decoder.token_index - 1;
+        interest->offset[CCN_PI_E_Name] = d->decoder.token_index;
+        interest->prefix_comps = ncomp;
+        interest->offset[CCN_PI_B_LastPrefixComponent] = components->buf[(ncomp > 0) ? (ncomp - 1) : 0];
+        interest->offset[CCN_PI_E_LastPrefixComponent] = components->buf[ncomp];
+        /* optional MinSuffixComponents, MaxSuffixComponents */
+        interest->min_suffix_comps = 0;
+        interest->max_suffix_comps = 32767;
+        interest->offset[CCN_PI_B_MinSuffixComponents] = d->decoder.token_index;
+        res = ccn_parse_optional_tagged_nonNegativeInteger(d,
+                                                           CCN_DTAG_MinSuffixComponents);
+        interest->offset[CCN_PI_E_MinSuffixComponents] = d->decoder.token_index;
+        if (res >= 0)
+            interest->min_suffix_comps = res;
+        interest->offset[CCN_PI_B_MaxSuffixComponents] = d->decoder.token_index;
+        res = ccn_parse_optional_tagged_nonNegativeInteger(d,
+                                                           CCN_DTAG_MaxSuffixComponents);
+        interest->offset[CCN_PI_E_MaxSuffixComponents] = d->decoder.token_index;
+        if (res >= 0)
+            interest->max_suffix_comps = res;
+        if (interest->max_suffix_comps < interest->min_suffix_comps)
+            return (d->decoder.state = -__LINE__);
+        /* optional PublisherID */
+        res = ccn_parse_PublisherID(d, interest);
+        /* optional Exclude element */
+        interest->offset[CCN_PI_B_Exclude] = d->decoder.token_index;
+        res = ccn_parse_Exclude(d);
+        interest->offset[CCN_PI_E_Exclude] = d->decoder.token_index;
+        /* optional ChildSelector */
+        interest->offset[CCN_PI_B_ChildSelector] = d->decoder.token_index;
+        res = ccn_parse_optional_tagged_nonNegativeInteger(d,
+                         CCN_DTAG_ChildSelector);
+        if (res < 0)
+            res = 0;
+        interest->orderpref = res;
+        interest->offset[CCN_PI_E_ChildSelector] = d->decoder.token_index;
+        if (interest->orderpref > 5)
+            return (d->decoder.state = -__LINE__);        
+        /* optional AnswerOriginKind */
+        interest->offset[CCN_PI_B_AnswerOriginKind] = d->decoder.token_index;
+        interest->answerfrom = ccn_parse_optional_tagged_nonNegativeInteger(d,
+                         CCN_DTAG_AnswerOriginKind);
+        interest->offset[CCN_PI_E_AnswerOriginKind] = d->decoder.token_index;
+        if (interest->answerfrom == -1)
+            interest->answerfrom = CCN_AOK_DEFAULT;
+        else if ((interest->answerfrom & CCN_AOK_NEW) != 0 &&
+                 (interest->answerfrom & CCN_AOK_CS) == 0)
+            return (d->decoder.state = -__LINE__);
+        /* optional Scope */
+        interest->offset[CCN_PI_B_Scope] = d->decoder.token_index;
+        interest->scope = ccn_parse_optional_tagged_nonNegativeInteger(d,
+                         CCN_DTAG_Scope);
+        interest->offset[CCN_PI_E_Scope] = d->decoder.token_index;
+        if (interest->scope > 9)
+                return (d->decoder.state = -__LINE__);
+        if ((interest->answerfrom & CCN_AOK_EXPIRE) != 0 &&
+            interest->scope != 0)
+                return (d->decoder.state = -__LINE__);
+        /* optional InterestLifetime */
+        interest->offset[CCN_PI_B_InterestLifetime] = d->decoder.token_index;
+        res = ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_InterestLifetime, 1, 8);
+        if (res >= 0)
+            magic |= 20100401;
+        interest->offset[CCN_PI_E_InterestLifetime] = d->decoder.token_index;
+        /* optional Nonce */
+        interest->offset[CCN_PI_B_Nonce] = d->decoder.token_index;
+        res = ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Nonce, 4, 64);
+        interest->offset[CCN_PI_E_Nonce] = d->decoder.token_index;
+        /* Allow for no experimental stuff */
+        interest->offset[CCN_PI_B_OTHER] = d->decoder.token_index;
+        interest->offset[CCN_PI_E_OTHER] = d->decoder.token_index;
+        ccn_buf_check_close(d);
+        interest->offset[CCN_PI_E] = d->decoder.index;
+    }
+    else
+        return (d->decoder.state = -__LINE__);
+    if (d->decoder.state < 0)
+        return (d->decoder.state);
+    if (d->decoder.index != size || !CCN_FINAL_DSTATE(d->decoder.state))
+        return (CCN_DSTATE_ERR_CODING);
+    if (magic == 0)
+        magic = 20090701;
+    if (!(magic == 20090701 || magic == 20100401))
+        return (d->decoder.state = -__LINE__);
+    interest->magic = magic;
+    return (ncomp);
+}
+
+
 
 struct parsed_KeyName {
     int Name;
