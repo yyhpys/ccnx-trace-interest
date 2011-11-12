@@ -3615,6 +3615,8 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 
 		for_trace = is_interest_for_trace(msg, size);
 		if (for_trace) {
+printf("trace packet detected !\n");
+
 			/* swap */
 			parsed_interest_flagged = parsed_interest;
 			memset(pi, 0, sizeof(struct ccn_parsed_interest));
@@ -3637,6 +3639,8 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 			res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
 			npe = e->data;
 		}
+		else
+printf("not trace packet!\n");
 
         if (npe == NULL | npe_flagged == NULL)
             goto Bail;
