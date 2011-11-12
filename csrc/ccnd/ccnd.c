@@ -1,4 +1,4 @@
-/*
+/* 
  * ccnd/ccnd.c
  *
  * Main program of ccnd - the CCNx Daemon
@@ -5043,14 +5043,16 @@ ccnd_destroy(struct ccnd_handle **pccnd)
 static int
 is_interest_for_trace(unsigned char *msg, size_t size){
     char* parsed_name;
-    int flag_pointer;
+    char* flag_pointer = malloc(255);
 
     parsed_name = get_interest_name(msg, size);
 	flag_pointer = strstr(parsed_name,TRACE_INTEREST_FLAG);
-	if(flag_pointer == 0){
+	if(flag_pointer != NULL){
+		free(flag_pointer);
 		return 0;
 	}
 	else{
+		free(flag_pointer);
 		return 1;
 	}
 }
