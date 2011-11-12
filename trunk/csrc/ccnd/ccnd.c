@@ -3605,25 +3605,26 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
         }
         namesize = comps->buf[pi->prefix_comps] - comps->buf[0];
         h->interests_accepted += 1;
+	s_ok = (pi->answerfrom & CCN_AOK_STALE) != 0;
+        matched = 0;
  
         hashtb_start(h->nameprefix_tab, e);
         res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
         npe = e->data;
 
-		s_ok = (pi->answerfrom & CCN_AOK_STALE) != 0;
-        matched = 0;
 
 		for_trace = is_interest_for_trace(msg, size);
 		if (for_trace) {
 printf("trace packet detected !\n");
 
-			/* swap */
+			/* swap 
 			parsed_interest_flagged = parsed_interest;
 			memset(pi, 0, sizeof(struct ccn_parsed_interest));
 			comps_flagged = comps;
 			comps = ccn_indexbuf_create();
 			npe_flagged = npe;
 			npe = NULL;
+*/
 			/*
 			msg_flagged = msg;
 			msg_charbuf = ccn_charbuf_create();
@@ -3631,18 +3632,21 @@ printf("trace packet detected !\n");
 			msg = msg_charbuf->buf;
 			*/
 
+			comps_flagged = ccn_indexbuf_create();
 			/* interest parsing without trace flag */
-			ccn_parse_interest_without_flag(msg, size, pi, comps);
+			ccn_parse_interest_without_flag(msg, size, pi_flagged, comps_flagged);
 
 			/* name prefix seek without trace flag */
 			hashtb_start(h->nameprefix_tab, e);
-			res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
-			npe = e->data;
+			res = nameprefix_seek(h, e, msg, comps_flagged, pi_flagged->prefix_comps);
+			npe_flagged = e->data;
+if (npe_flagged == NULL)
+goto Bail;
 		}
 		else
 printf("not trace packet!\n");
 
-        if (npe == NULL | npe_flagged == NULL)
+        if (npe == NULL)
             goto Bail;
         if ((npe->flags & CCN_FORW_LOCAL) != 0 &&
             (face->flags & CCN_FACE_GG) == 0) {
@@ -5043,16 +5047,14 @@ ccnd_destroy(struct ccnd_handle **pccnd)
 static int
 is_interest_for_trace(unsigned char *msg, size_t size){
     char* parsed_name;
-    char* flag_pointer = malloc(255);
+    char* flag_pointer;
 
     parsed_name = get_interest_name(msg, size);
 	flag_pointer = strstr(parsed_name,TRACE_INTEREST_FLAG);
 	if(flag_pointer != NULL){
-		free(flag_pointer);
-		return 0;
+		return 1;
 	}
 	else{
-		free(flag_pointer);
-		return 1;
+		return 0;
 	}
 }
