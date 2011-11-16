@@ -3605,7 +3605,7 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
         }
         namesize = comps->buf[pi->prefix_comps] - comps->buf[0];
         h->interests_accepted += 1;
-	s_ok = (pi->answerfrom & CCN_AOK_STALE) != 0;
+		s_ok = (pi->answerfrom & CCN_AOK_STALE) != 0;
         matched = 0;
  
         hashtb_start(h->nameprefix_tab, e);
@@ -3613,18 +3613,18 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
         npe = e->data;
 
 
+		/* test if the name is flagged */
 		for_trace = is_interest_for_trace(msg, size);
 		if (for_trace) {
-printf("trace packet detected !\n");
+printf("[trace interest] flagged interest detected !\n");
 
-			/* swap 
+			/* swap */
 			parsed_interest_flagged = parsed_interest;
 			memset(pi, 0, sizeof(struct ccn_parsed_interest));
 			comps_flagged = comps;
 			comps = ccn_indexbuf_create();
 			npe_flagged = npe;
 			npe = NULL;
-*/
 			/*
 			msg_flagged = msg;
 			msg_charbuf = ccn_charbuf_create();
@@ -3632,19 +3632,17 @@ printf("trace packet detected !\n");
 			msg = msg_charbuf->buf;
 			*/
 
-			comps_flagged = ccn_indexbuf_create();
-			/* interest parsing without trace flag */
-			ccn_parse_interest_without_flag(msg, size, pi_flagged, comps_flagged);
+			if (npe_flagged == NULL)
+				goto Bail;
 
+			/* interest parsing without trace flag */
+			ccn_parse_interest_without_flag(msg, size, pi, comps);
+printf("[trace interest] num of name component >> original : %d, without flag : %d\n", pi_flagged->prefix_comps, pi->prefix_comps);
 			/* name prefix seek without trace flag */
 			hashtb_start(h->nameprefix_tab, e);
-			res = nameprefix_seek(h, e, msg, comps_flagged, pi_flagged->prefix_comps);
-			npe_flagged = e->data;
-if (npe_flagged == NULL)
-goto Bail;
+			res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
+			npe= e->data;
 		}
-		else
-printf("not trace packet!\n");
 
         if (npe == NULL)
             goto Bail;
