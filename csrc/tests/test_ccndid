@@ -11,8 +11,8 @@
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.
 #
-AFTER : test_single_ccnd
-BEFORE : test_single_ccnd_teardown
+#AFTER : test_single_ccnd
+#BEFORE : test_single_ccnd_teardown
 
 # We need to learn the CCNDID of our ccnd.
 IsolatePubID () {
