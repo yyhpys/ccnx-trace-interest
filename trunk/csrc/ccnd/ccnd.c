@@ -3202,8 +3202,8 @@ propagate_interest(struct ccnd_handle *h,
                    unsigned char *msg,
                    struct ccn_parsed_interest *pi,
                    struct nameprefix_entry *npe,
-                   struct ccn_parsed_interest *pi_flagged,
-                   struct nameprefix_entry *npe_flagged)
+                   struct ccn_parsed_interest *pi_woflag,
+                   struct nameprefix_entry *npe_woflag)
 {
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
@@ -3221,8 +3221,21 @@ propagate_interest(struct ccnd_handle *h,
     struct ccn_indexbuf *outbound = NULL;
     intmax_t lifetime;
 
+	int i;
+
     lifetime = ccn_interest_lifetime(msg, pi);
-    outbound = get_outbound_faces(h, face, msg, pi, npe);
+	// interest trace
+	if (pi_woflag == NULL)
+    	outbound = get_outbound_faces(h, face, msg, pi_woflag, npe_woflag);
+	else
+    	outbound = get_outbound_faces(h, face, msg, pi, npe);
+
+	printf("[outbound check]");
+	for (i = 0; i < outbound->n; i++)
+		printf(" %d", outbound->buf[i]);
+	printf("\n");
+	
+	// interest trace
     if (outbound->n != 0) {
         extra_delay = adjust_outbound_for_existing_interests(h, face, msg, pi, npe, outbound);
         if (extra_delay < 0) {
@@ -3637,7 +3650,6 @@ printf("[trace interest] flagged interest detected !\n");
 
 			/* interest parsing without trace flag */
 			ccn_parse_interest_without_flag(msg, size, pi, comps);
-printf("[trace interest] num of name component >> original : %d, without flag : %d\n", pi_flagged->prefix_comps, pi->prefix_comps);
 			/* name prefix seek without trace flag */
 			hashtb_start(h->nameprefix_tab, e);
 			res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
@@ -3655,11 +3667,11 @@ printf("[trace interest] num of name component >> original : %d, without flag : 
         if ((pi->answerfrom & CCN_AOK_CS) != 0) {
             last_match = NULL;
             content = find_first_match_candidate(h, msg, pi);
-	    //debug
-	    if (content != NULL){
-		printf("CS Match-1\n");
-	    }
-	    //debug
+	    	//debug
+	    	if (content != NULL){
+				printf("CS Match-1\n");
+	    	}
+	    	//debug
             if (content != NULL && (h->debug & 8))
                 ccnd_debug_ccnb(h, __LINE__, "first_candidate", NULL,
                                 content->key,
@@ -3670,15 +3682,15 @@ printf("[trace interest] num of name component >> original : %d, without flag : 
                 if (h->debug & 8)
                     ccnd_debug_ccnb(h, __LINE__, "prefix_mismatch", NULL,
                                     msg, size);
-                content = NULL;
-            }
-	    //debug
-	    if (content != NULL){
-		printf("CS Match-2\n");
-	    }
-	    //debug
-            for (try = 0; content != NULL; try++) {
-                if ((s_ok || (content->flags & CCN_CONTENT_ENTRY_STALE) == 0) &&
+				content = NULL;
+			}
+			//debug
+			if (content != NULL){
+				printf("CS Match-2\n");
+			}
+			//debug
+			for (try = 0; content != NULL; try++) {
+				if ((s_ok || (content->flags & CCN_CONTENT_ENTRY_STALE) == 0) &&
                     ccn_content_matches_interest(content->key,
                                        content->size,
                                        0, NULL, msg, size, pi)) {
@@ -3726,16 +3738,16 @@ printf("[trace interest] num of name component >> original : %d, without flag : 
                     content = NULL;
                 }
 		//debug
-	        if (content != NULL){
+        if (content != NULL){
 	   	    printf("CS Match-5\n");
 		}
-	        //debug
+        //debug
             }
             if (last_match != NULL){
                 content = last_match;
-		//debug
-		printf("real cs match!!\n");
-	    }
+				//debug
+				printf("real cs match!!\n");
+	    	}
             if (content != NULL) {
                 /* Check to see if we are planning to send already */
                 enum cq_delay_class c;
@@ -3754,16 +3766,17 @@ printf("[trace interest] num of name component >> original : %d, without flag : 
                 if ((pi->answerfrom & CCN_AOK_EXPIRE) != 0)
                     mark_stale(h, content);
                 matched = 1;
-		//debug
-	        printf("CS Match-6\n");
-	      
-	        //debug
+				//debug
+	        	printf("CS Match-6\n");
+	        	//debug
             }
         }
-        if (!matched && pi->scope != 0 && npe != NULL)
-            propagate_interest(h, face, msg, pi, npe, pi_flagged, npe_flagged);
-	else
-	    printf("CS Match\n");
+        if (!matched && pi->scope != 0 && npe != NULL) {
+			if (for_trace)
+            	propagate_interest(h, face, msg, pi_flagged, npe_flagged, pi, npe);
+			else
+				propagate_interest(h, face, msg, pi, npe, NULL, NULL);
+		}
 
     Bail:
         hashtb_end(e);
