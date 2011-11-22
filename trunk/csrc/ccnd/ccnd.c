@@ -3226,14 +3226,16 @@ propagate_interest(struct ccnd_handle *h,
     lifetime = ccn_interest_lifetime(msg, pi);
 	// interest trace
 	if (pi_woflag == NULL)
-    	outbound = get_outbound_faces(h, face, msg, pi_woflag, npe_woflag);
-	else
     	outbound = get_outbound_faces(h, face, msg, pi, npe);
+	else
+    	outbound = get_outbound_faces(h, face, msg, pi_woflag, npe_woflag);
 
+	// debug
 	printf("[outbound check]");
 	for (i = 0; i < outbound->n; i++)
 		printf(" %d", outbound->buf[i]);
 	printf("\n");
+	// debug
 	
 	// interest trace
     if (outbound->n != 0) {
@@ -3654,6 +3656,13 @@ printf("[trace interest] flagged interest detected !\n");
 			hashtb_start(h->nameprefix_tab, e);
 			res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
 			npe= e->data;
+
+			struct propagating_entry *pe = &(npe->pe_head);
+			printf("propagating_entry of npe :\n\t%s\n",
+					get_interest_name(pe->interest_msg,pe->size));
+			pe = &(npe_flagged->pe_head);
+			printf("propagating_entry of npe_flagged :\n\t%s\n",
+					get_interest_name(pe->interest_msg,pe->size));
 		}
 
         if (npe == NULL)
