@@ -49,6 +49,7 @@
 
 #define TRACE_INTEREST_FLAG "trace_interest_flag"
 
+
 /* opaque declarations */
 struct ccn;
 struct ccn_pkey;
@@ -533,7 +534,8 @@ ccn_parse_interest(const unsigned char *msg, size_t size,
 int
 ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
                    struct ccn_parsed_interest *interest,
-                   struct ccn_indexbuf *components);
+                   struct ccn_indexbuf *components,
+                   unsigned char *msg_without_flag);
 
 
 
@@ -627,7 +629,7 @@ void ccn_digest_ContentObject(const unsigned char *msg,
  */
 int ccn_parse_Name(struct ccn_buf_decoder *d, struct ccn_indexbuf *components);
 
-int ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components);
+int ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components, const unsigned char *msg, size_t size, unsigned char *msg_without_flag);
 
 /*
  * ccn_compare_names:

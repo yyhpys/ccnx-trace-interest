@@ -3651,7 +3651,8 @@ printf("[trace interest] flagged interest detected !\n");
 				goto Bail;
 
 			/* interest parsing without trace flag */
-			ccn_parse_interest_without_flag(msg, size, pi, comps);
+			unsigned char *msg_without_flag;
+			ccn_parse_interest_without_flag(msg, size, pi, comps, msg_without_flag);
 			/* name prefix seek without trace flag */
 			hashtb_start(h->nameprefix_tab, e);
 			res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
