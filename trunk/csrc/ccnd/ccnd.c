@@ -3222,7 +3222,6 @@ propagate_interest(struct ccnd_handle *h,
     struct ccn_indexbuf *outbound = NULL;
     intmax_t lifetime;
 
-
     lifetime = ccn_interest_lifetime(msg, pi);
 	if (pi_woflag == NULL) // if not for trace
     	outbound = get_outbound_faces(h, face, msg, pi, npe);
@@ -3548,7 +3547,7 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
                           unsigned char *msg, size_t size)
 {
 	/* interest trace */
-	int for_trace;
+	int for_trace = 0;
 	struct ccn_parsed_interest parsed_interest_flagged = {0};
 	struct ccn_parsed_interest *pi_flagged = &parsed_interest_flagged;
 	struct ccn_indexbuf *comps_flagged;
@@ -3651,10 +3650,12 @@ printf("[trace interest] flagged interest detected !\n");
 			if (npe_flagged == NULL)
 				goto Bail;
 
+			printf(">>>>>>>>> now start parsing without flag !!\n");
 			/* interest parsing without trace flag */
 			ccn_parse_interest_without_flag(msg_flagged, size, pi, comps, msgbuf);
 			msg = msgbuf->buf;
 			size = msgbuf->length;
+			printf(">>>>>>>>> end parsing without flag !!\n");
 			/* name prefix seek without trace flag */
 			hashtb_start(h->nameprefix_tab, ef);
 			res = nameprefix_seek(h, ef, msg, comps, pi->prefix_comps);
@@ -3790,6 +3791,7 @@ printf("[trace interest] flagged interest detected !\n");
             }
         }
         if (!matched && pi->scope != 0 && npe != NULL) {
+			printf(">>>>>>>>> %s\n", get_interest_name(msg, size));
 			if (for_trace)
             	propagate_interest(h, face, msg_flagged, pi_flagged, npe_flagged, msg, pi, npe);
 			else
@@ -3798,11 +3800,17 @@ printf("[trace interest] flagged interest detected !\n");
 
     Bail:
         hashtb_end(e);
-        hashtb_end(ef);
+		if (for_trace)
+        	hashtb_end(ef);
     }
-    indexbuf_release(h, comps);
-	ccn_indexbuf_destroy(&comps_flagged);
-	ccn_charbuf_destroy(&msgbuf);
+	if (for_trace) {
+    	indexbuf_release(h, comps_flagged);
+		ccn_indexbuf_destroy(&comps);
+		ccn_charbuf_destroy(&msgbuf);
+	}
+	else {
+    	indexbuf_release(h, comps);
+	}
 }
 
 /**
