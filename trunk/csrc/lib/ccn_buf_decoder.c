@@ -298,21 +298,10 @@ ccn_parse_Name(struct ccn_buf_decoder *d, struct ccn_indexbuf *components)
                 ccn_indexbuf_append_element(components, d->decoder.token_index);
             ncomp += 1;
             ccn_buf_advance(d);
-//debug
-/*
-const unsigned char *comp = NULL;
-size_t compsize = 0;
-ccn_buf_match_blob(d, &comp, &compsize);
-struct ccn_charbuf* ccnb;
-ccnb = ccn_charbuf_create();
-ccn_uri_append_percentescaped(ccnb, comp, compsize);
-printf("//CCN_PARSE_NAME - COMP: %s\n", comp);
-printf("//CCN_PARSE_NAME - COMP CHANGED: %s\n", ccn_charbuf_as_string(ccnb));
-*/
-//
 
             if (ccn_buf_match_blob(d, NULL, NULL))
                 ccn_buf_advance(d);
+
             ccn_buf_check_close(d);
         }
         if (components != NULL)
@@ -331,7 +320,7 @@ printf("//CCN_PARSE_NAME - COMP CHANGED: %s\n", ccn_charbuf_as_string(ccnb));
 //inserted_function
 //omit trace flag when parse name
 int
-ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components)
+ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components, const unsigned char *msg, size_t size, unsigned char *msg_without_flag)
 {
     int ncomp = 0;   
 
@@ -339,11 +328,22 @@ ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *comp
 	const unsigned char *namecomp = NULL;
         size_t namecomp_size = 0;
         struct ccn_charbuf* namecomp_ccnb;
+	struct ccn_charbuf* ccnd_without_flag = ccn_charbuf_create();
+        int state = 0;
 
         if (components != NULL) components->n = 0;
         ccn_buf_advance(d);
         while (ccn_buf_match_dtag(d, CCN_DTAG_Component)) {
             int temp_index = d->decoder.token_index;
+
+            if(state==1) {
+                int right_side_size = size - temp_index;
+                ccn_charbuf_append(ccnd_without_flag, msg + temp_index, right_side_size);
+
+                msg_without_flag = ccnd_without_flag->buf;
+                state=-1;	
+            }
+
             ccn_buf_advance(d);
 
             ccn_buf_match_blob(d, &namecomp, &namecomp_size);
@@ -356,10 +356,14 @@ ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *comp
                 if (components != NULL)
                     ccn_indexbuf_append_element(components, temp_index);
                 ncomp += 1;
+            } else {
+                ccn_charbuf_append(ccnd_without_flag, msg, temp_index);
+                state=1;
             }
 
             if (ccn_buf_match_blob(d, NULL, NULL))
                 ccn_buf_advance(d);
+
             ccn_buf_check_close(d);
         }
         if (components != NULL)
@@ -767,7 +771,7 @@ ccn_parse_interest(const unsigned char *msg, size_t size,
 int
 ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
                    struct ccn_parsed_interest *interest,
-                   struct ccn_indexbuf *components)
+                   struct ccn_indexbuf *components, unsigned char *msg_without_flag)
 {
     struct ccn_buf_decoder decoder;
     struct ccn_buf_decoder *d = ccn_buf_decoder_start(&decoder, msg, size);
@@ -786,7 +790,7 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
         ccn_buf_advance(d);
         interest->offset[CCN_PI_B_Name] = d->decoder.element_index;
         interest->offset[CCN_PI_B_Component0] = d->decoder.index;
-        ncomp = ccn_parse_Name_without_flag(d, components);
+        ncomp = ccn_parse_Name_without_flag(d, components, msg, size, msg_without_flag);
         if (d->decoder.state < 0) {
             memset(interest->offset, 0, sizeof(interest->offset));
             return(d->decoder.state);
