@@ -320,7 +320,7 @@ ccn_parse_Name(struct ccn_buf_decoder *d, struct ccn_indexbuf *components)
 //inserted_function
 //omit trace flag when parse name
 int
-ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components, const unsigned char *msg, size_t size, unsigned char *msg_without_flag)
+ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components, const unsigned char *msg, size_t size, struct ccn_charbuf *ccnb_without_flag)
 {
     int ncomp = 0;   
 
@@ -328,7 +328,7 @@ ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *comp
 	const unsigned char *namecomp = NULL;
         size_t namecomp_size = 0;
         struct ccn_charbuf* namecomp_ccnb;
-	struct ccn_charbuf* ccnd_without_flag = ccn_charbuf_create();
+	ccnb_without_flag = ccn_charbuf_create();
         int state = 0;
 
         if (components != NULL) components->n = 0;
@@ -338,9 +338,8 @@ ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *comp
 
             if(state==1) {
                 int right_side_size = size - temp_index;
-                ccn_charbuf_append(ccnd_without_flag, msg + temp_index, right_side_size);
+                ccn_charbuf_append(ccnb_without_flag, msg + temp_index, right_side_size);
 
-                msg_without_flag = ccnd_without_flag->buf;
                 state=-1;	
             }
 
@@ -357,7 +356,7 @@ ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *comp
                     ccn_indexbuf_append_element(components, temp_index);
                 ncomp += 1;
             } else {
-                ccn_charbuf_append(ccnd_without_flag, msg, temp_index);
+                ccn_charbuf_append(ccnb_without_flag, msg, temp_index);
                 state=1;
             }
 
@@ -771,26 +770,36 @@ ccn_parse_interest(const unsigned char *msg, size_t size,
 int
 ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
                    struct ccn_parsed_interest *interest,
-                   struct ccn_indexbuf *components, unsigned char *msg_without_flag)
+                   struct ccn_indexbuf *components, struct ccn_charbuf *ccnb_without_flag)
 {
     struct ccn_buf_decoder decoder;
     struct ccn_buf_decoder *d = ccn_buf_decoder_start(&decoder, msg, size);
     int magic = 0;
     int ncomp = 0;
     int res;
+
+    struct ccn_indexbuf *temp_comp;
+    temp_comp = ccn_indexbuf_create();
+
+
     if (ccn_buf_match_dtag(d, CCN_DTAG_Interest)) {
         if (components == NULL) {
             /* We need to have the component offsets. */
             components = ccn_indexbuf_create();
             if (components == NULL) return(-1);
-            res = ccn_parse_interest(msg, size, interest, components);
+            res = ccn_parse_interest_without_flag(msg, size, interest, components, ccnb_without_flag);
             ccn_indexbuf_destroy(&components);
             return(res);
         }
         ccn_buf_advance(d);
         interest->offset[CCN_PI_B_Name] = d->decoder.element_index;
         interest->offset[CCN_PI_B_Component0] = d->decoder.index;
-        ncomp = ccn_parse_Name_without_flag(d, components, msg, size, msg_without_flag);
+        ncomp = ccn_parse_Name_without_flag(d, temp_comp, msg, size, ccnb_without_flag);
+    }	
+
+        ccn_indexbuf_destroy(&temp_comp);
+	return ccn_parse_interest(ccnb_without_flag->buf, ccnb_without_flag->length, interest, components);
+/*
         if (d->decoder.state < 0) {
             memset(interest->offset, 0, sizeof(interest->offset));
             return(d->decoder.state);
@@ -800,7 +809,7 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
         interest->prefix_comps = ncomp;
         interest->offset[CCN_PI_B_LastPrefixComponent] = components->buf[(ncomp > 0) ? (ncomp - 1) : 0];
         interest->offset[CCN_PI_E_LastPrefixComponent] = components->buf[ncomp];
-        /* optional MinSuffixComponents, MaxSuffixComponents */
+
         interest->min_suffix_comps = 0;
         interest->max_suffix_comps = 32767;
         interest->offset[CCN_PI_B_MinSuffixComponents] = d->decoder.token_index;
@@ -817,13 +826,13 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
             interest->max_suffix_comps = res;
         if (interest->max_suffix_comps < interest->min_suffix_comps)
             return (d->decoder.state = -__LINE__);
-        /* optional PublisherID */
+
         res = ccn_parse_PublisherID(d, interest);
-        /* optional Exclude element */
+
         interest->offset[CCN_PI_B_Exclude] = d->decoder.token_index;
         res = ccn_parse_Exclude(d);
         interest->offset[CCN_PI_E_Exclude] = d->decoder.token_index;
-        /* optional ChildSelector */
+
         interest->offset[CCN_PI_B_ChildSelector] = d->decoder.token_index;
         res = ccn_parse_optional_tagged_nonNegativeInteger(d,
                          CCN_DTAG_ChildSelector);
@@ -833,7 +842,7 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
         interest->offset[CCN_PI_E_ChildSelector] = d->decoder.token_index;
         if (interest->orderpref > 5)
             return (d->decoder.state = -__LINE__);        
-        /* optional AnswerOriginKind */
+
         interest->offset[CCN_PI_B_AnswerOriginKind] = d->decoder.token_index;
         interest->answerfrom = ccn_parse_optional_tagged_nonNegativeInteger(d,
                          CCN_DTAG_AnswerOriginKind);
@@ -843,7 +852,7 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
         else if ((interest->answerfrom & CCN_AOK_NEW) != 0 &&
                  (interest->answerfrom & CCN_AOK_CS) == 0)
             return (d->decoder.state = -__LINE__);
-        /* optional Scope */
+
         interest->offset[CCN_PI_B_Scope] = d->decoder.token_index;
         interest->scope = ccn_parse_optional_tagged_nonNegativeInteger(d,
                          CCN_DTAG_Scope);
@@ -853,17 +862,17 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
         if ((interest->answerfrom & CCN_AOK_EXPIRE) != 0 &&
             interest->scope != 0)
                 return (d->decoder.state = -__LINE__);
-        /* optional InterestLifetime */
+
         interest->offset[CCN_PI_B_InterestLifetime] = d->decoder.token_index;
         res = ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_InterestLifetime, 1, 8);
         if (res >= 0)
             magic |= 20100401;
         interest->offset[CCN_PI_E_InterestLifetime] = d->decoder.token_index;
-        /* optional Nonce */
+
         interest->offset[CCN_PI_B_Nonce] = d->decoder.token_index;
         res = ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Nonce, 4, 64);
         interest->offset[CCN_PI_E_Nonce] = d->decoder.token_index;
-        /* Allow for no experimental stuff */
+
         interest->offset[CCN_PI_B_OTHER] = d->decoder.token_index;
         interest->offset[CCN_PI_E_OTHER] = d->decoder.token_index;
         ccn_buf_check_close(d);
@@ -881,6 +890,7 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
         return (d->decoder.state = -__LINE__);
     interest->magic = magic;
     return (ncomp);
+*/
 }
 
 
@@ -1112,6 +1122,42 @@ ccn_parse_ContentObject(const unsigned char *msg, size_t size,
         x->offset[CCN_PCO_E_ComponentLast] = d->decoder.token_index - 1;
         x->offset[CCN_PCO_E_Name] = d->decoder.token_index;
         ccn_parse_SignedInfo(d, x);
+        x->offset[CCN_PCO_B_Content] = d->decoder.token_index;
+        ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Content, 0, -1);
+        x->offset[CCN_PCO_E_Content] = d->decoder.token_index;
+        ccn_buf_check_close(d);
+        x->offset[CCN_PCO_E] = d->decoder.index;
+    }
+    else
+        d->decoder.state = -__LINE__;
+    if (d->decoder.index != size || !CCN_FINAL_DSTATE(d->decoder.state))
+        return (CCN_DSTATE_ERR_CODING);
+    return(0);
+}
+
+int
+ccn_parse_ContentObject_with_Router(const unsigned char *msg, size_t size,
+                        struct ccn_parsed_ContentObject *x,
+                        struct ccn_indexbuf *components,
+			struct ccn_indexbuf *router_components)
+{
+    struct ccn_buf_decoder decoder;
+    struct ccn_buf_decoder *d = ccn_buf_decoder_start(&decoder, msg, size);
+    int res;
+    x->magic = 20090415;
+    x->digest_bytes = 0;
+    if (ccn_buf_match_dtag(d, CCN_DTAG_ContentObject)) {
+        ccn_buf_advance(d);
+        res = ccn_parse_Signature(d, x);
+        x->offset[CCN_PCO_B_Name] = d->decoder.token_index;
+        x->offset[CCN_PCO_B_Component0] = d->decoder.index;
+        res = ccn_parse_Name(d, components);
+        if (res < 0)
+            d->decoder.state = -__LINE__;
+        x->name_ncomps = res;
+        x->offset[CCN_PCO_E_ComponentLast] = d->decoder.token_index - 1;
+        x->offset[CCN_PCO_E_Name] = d->decoder.token_index;
+	ccn_parse_SignedInfo_with_Router(d, x, router_components);
         x->offset[CCN_PCO_B_Content] = d->decoder.token_index;
         ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Content, 0, -1);
         x->offset[CCN_PCO_E_Content] = d->decoder.token_index;
