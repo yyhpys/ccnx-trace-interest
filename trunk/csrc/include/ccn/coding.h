@@ -151,7 +151,8 @@ enum ccn_dtag {
     CCN_DTAG_StatusCode = 113,
     CCN_DTAG_StatusText = 114,
     CCN_DTAG_SequenceNumber = 256,
-    CCN_DTAG_CCNProtocolDataUnit = 17702112
+    CCN_DTAG_CCNProtocolDataUnit = 17702112,
+    CCN_DTAG_Router = 222
 };
 
 struct ccn_dict_entry {

@@ -23,6 +23,7 @@
 #include <ccn/charbuf.h>
 #include <ccn/coding.h>
 #include <ccn/indexbuf.h>
+#include <ccn/uri.h>
 
 struct ccn_buf_decoder *
 ccn_buf_decoder_start(struct ccn_buf_decoder *d,
@@ -367,6 +368,35 @@ ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *comp
     }
     else
         d->decoder.state = -__LINE__;
+    if (d->decoder.state < 0)
+        return(-1);
+    else
+        return(ncomp);
+}
+
+int
+ccn_parse_Name_of_Router(struct ccn_buf_decoder *d, struct ccn_indexbuf *components)
+{
+    int ncomp = 0;
+    //if (ccn_buf_match_dtag(d, CCN_DTAG_Name)) {
+        if (components != NULL) components->n = 0;
+        ccn_buf_advance(d);
+        while (ccn_buf_match_dtag(d, CCN_DTAG_Component)) {
+            if (components != NULL)
+                ccn_indexbuf_append_element(components, d->decoder.token_index);
+            ncomp += 1;
+            ccn_buf_advance(d);
+
+            if (ccn_buf_match_blob(d, NULL, NULL))
+                ccn_buf_advance(d);
+            ccn_buf_check_close(d);
+        }
+        if (components != NULL)
+            ccn_indexbuf_append_element(components, d->decoder.token_index);
+        ccn_buf_check_close(d);
+    //}
+    //else
+    //   d->decoder.state = -__LINE__;
     if (d->decoder.state < 0)
         return(-1);
     else
@@ -979,6 +1009,82 @@ ccn_parse_SignedInfo(struct ccn_buf_decoder *d, struct ccn_parsed_ContentObject 
         return (d->decoder.state);
     return(0);
 }
+
+static int
+ccn_parse_SignedInfo_with_Router(struct ccn_buf_decoder *d, struct ccn_parsed_ContentObject *x, struct ccn_indexbuf *components)
+{
+    x->offset[CCN_PCO_B_SignedInfo] = d->decoder.token_index;
+    if (ccn_buf_match_dtag(d, CCN_DTAG_SignedInfo)) {
+        ccn_buf_advance(d);
+        x->offset[CCN_PCO_B_PublisherPublicKeyDigest] = d->decoder.token_index;
+        ccn_parse_required_tagged_BLOB(d, CCN_DTAG_PublisherPublicKeyDigest, 16, 64);
+        x->offset[CCN_PCO_E_PublisherPublicKeyDigest] = d->decoder.token_index;
+        
+        x->offset[CCN_PCO_B_Timestamp] = d->decoder.token_index;
+        ccn_parse_required_tagged_timestamp(d, CCN_DTAG_Timestamp);
+        x->offset[CCN_PCO_E_Timestamp] = d->decoder.token_index;
+        
+        x->offset[CCN_PCO_B_Type] = d->decoder.token_index;
+        x->type = CCN_CONTENT_DATA;
+        x->type = ccn_parse_optional_tagged_binary_number(d, CCN_DTAG_Type, 3, 3, CCN_CONTENT_DATA);
+        x->offset[CCN_PCO_E_Type] = d->decoder.token_index;
+        
+        x->offset[CCN_PCO_B_FreshnessSeconds] = d->decoder.token_index;
+        ccn_parse_optional_tagged_nonNegativeInteger(d, CCN_DTAG_FreshnessSeconds);
+        x->offset[CCN_PCO_E_FreshnessSeconds] = d->decoder.token_index;
+        
+        x->offset[CCN_PCO_B_FinalBlockID] = d->decoder.token_index;
+        ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_FinalBlockID, 1, -1);
+        x->offset[CCN_PCO_E_FinalBlockID] = d->decoder.token_index;
+        
+        x->offset[CCN_PCO_B_KeyLocator] = d->decoder.token_index;
+        x->offset[CCN_PCO_B_Key_Certificate_KeyName] = d->decoder.token_index;
+        x->offset[CCN_PCO_E_Key_Certificate_KeyName] = d->decoder.token_index;
+        x->offset[CCN_PCO_B_KeyName_Name] = d->decoder.token_index;
+        x->offset[CCN_PCO_E_KeyName_Name] = d->decoder.token_index;
+        x->offset[CCN_PCO_B_KeyName_Pub] = d->decoder.token_index;
+        x->offset[CCN_PCO_E_KeyName_Pub] = d->decoder.token_index;
+        if (ccn_buf_match_dtag(d, CCN_DTAG_KeyLocator)) {
+            ccn_buf_advance(d);
+            x->offset[CCN_PCO_B_Key_Certificate_KeyName] = d->decoder.token_index;
+            if (ccn_buf_match_dtag(d, CCN_DTAG_Key)) {
+                (void)ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Key, 0, -1);
+            }
+            else if (ccn_buf_match_dtag(d, CCN_DTAG_Certificate)) {
+                (void)ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Certificate, 0, -1);
+            }
+            else {
+                struct parsed_KeyName keyname = {-1, -1, -1, -1};
+                if (ccn_parse_KeyName(d, &keyname) >= 0) {
+                    if (keyname.Name >= 0) {
+                        x->offset[CCN_PCO_B_KeyName_Name] = keyname.Name;
+                        x->offset[CCN_PCO_E_KeyName_Name] = keyname.endName;
+                    }
+                    if (keyname.PublisherID >= 0) {
+                        x->offset[CCN_PCO_B_KeyName_Pub] = keyname.PublisherID;
+                        x->offset[CCN_PCO_E_KeyName_Pub] = keyname.endPublisherID;
+                    }
+                }
+            }
+            x->offset[CCN_PCO_E_Key_Certificate_KeyName] = d->decoder.token_index;
+            ccn_buf_check_close(d);
+        }
+        x->offset[CCN_PCO_E_KeyLocator] = d->decoder.token_index;
+
+	x->offset[CCN_PCO_B_Router] = d->decoder.token_index;
+	ccn_parse_Name_of_Router(d, components);
+	x->offset[CCN_PCO_E_Router] = d->decoder.token_index;
+
+        ccn_buf_check_close(d);
+    }
+    else
+        d->decoder.state = -__LINE__;
+    x->offset[CCN_PCO_E_SignedInfo] = d->decoder.token_index;
+    if (d->decoder.state < 0)
+        return (d->decoder.state);
+    return(0);
+}
+
 
 int
 ccn_parse_ContentObject(const unsigned char *msg, size_t size,
