@@ -589,7 +589,9 @@ enum ccn_parsed_content_object_offsetid {
     CCN_PCO_E_SignedInfo,
     CCN_PCO_B_Content,
     CCN_PCO_E_Content,
-    CCN_PCO_E
+    CCN_PCO_E,
+    CCN_PCO_B_Router,
+    CCN_PCO_E_Router
 };
 
 struct ccn_parsed_ContentObject {
