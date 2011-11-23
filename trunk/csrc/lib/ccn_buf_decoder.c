@@ -799,7 +799,7 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
 
         ccn_indexbuf_destroy(&temp_comp);
 		printf(" !!! end !!! remove flag from msg. size : %d / size without flag %u\n", size, ccnb_without_flag->length);
-		printf(" !!! start !!! normal parse interest(with flag removed msg)");
+		printf(" !!! start !!! normal parse interest(with flag removed msg)\n");
 	return ccn_parse_interest(ccnb_without_flag->buf, ccnb_without_flag->length, interest, components);
 /*
         if (d->decoder.state < 0) {
