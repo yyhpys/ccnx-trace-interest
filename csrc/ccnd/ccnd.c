@@ -3202,6 +3202,7 @@ propagate_interest(struct ccnd_handle *h,
                    unsigned char *msg,
                    struct ccn_parsed_interest *pi,
                    struct nameprefix_entry *npe,
+				   unsigned char *msg_woflag,
                    struct ccn_parsed_interest *pi_woflag,
                    struct nameprefix_entry *npe_woflag)
 {
@@ -3221,25 +3222,19 @@ propagate_interest(struct ccnd_handle *h,
     struct ccn_indexbuf *outbound = NULL;
     intmax_t lifetime;
 
-	int i;
 
     lifetime = ccn_interest_lifetime(msg, pi);
-	// interest trace
-	if (pi_woflag == NULL)
+	if (pi_woflag == NULL) // if not for trace
     	outbound = get_outbound_faces(h, face, msg, pi, npe);
 	else
-    	outbound = get_outbound_faces(h, face, msg, pi_woflag, npe_woflag);
-
-	// debug
-	printf("[outbound check]");
-	for (i = 0; i < outbound->n; i++)
-		printf(" %d", outbound->buf[i]);
-	printf("\n");
-	// debug
+    	outbound = get_outbound_faces(h, face, msg_woflag, pi_woflag, npe_woflag);
 	
-	// interest trace
     if (outbound->n != 0) {
-        extra_delay = adjust_outbound_for_existing_interests(h, face, msg, pi, npe, outbound);
+		if (pi_woflag == NULL) // if not for trace
+        	extra_delay = adjust_outbound_for_existing_interests(h, face, msg, pi, npe, outbound);
+		else
+        	extra_delay = adjust_outbound_for_existing_interests(h, face, msg_woflag, pi_woflag, npe_woflag, outbound);
+
         if (extra_delay < 0) {
             /*
              * Completely subsumed by other interests.
@@ -3254,6 +3249,15 @@ propagate_interest(struct ccnd_handle *h,
             return(0);
         }
     }
+
+	// debug
+	int i;
+	printf("[outbound check]");
+	for (i = 0; i < outbound->n; i++)
+		printf(" %d", outbound->buf[i]);
+	printf("\n");
+	// debug
+
     if (pi->offset[CCN_PI_B_Nonce] == pi->offset[CCN_PI_E_Nonce]) {
         /* This interest has no nonce; add one before going on */
         size_t nonce_start = 0;
@@ -3548,9 +3552,11 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 	struct ccn_parsed_interest parsed_interest_flagged = {0};
 	struct ccn_parsed_interest *pi_flagged = &parsed_interest_flagged;
 	struct ccn_indexbuf *comps_flagged;
-	//struct ccn_charbuf *msg_charbuf;
-	//unsigned char *msg_flagged;
+	struct ccn_charbuf *msgbuf;
+	unsigned char *msg_flagged;
 	struct nameprefix_entry *npe_flagged = NULL;
+    struct hashtb_enumerator eef;
+    struct hashtb_enumerator *ef = &eef;
 	/* ---- end ---- */
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
@@ -3640,30 +3646,32 @@ printf("[trace interest] flagged interest detected !\n");
 			comps = ccn_indexbuf_create();
 			npe_flagged = npe;
 			npe = NULL;
-			/*
 			msg_flagged = msg;
-			msg_charbuf = ccn_charbuf_create();
-			ccn_charbuf_append(msg_charbuf, msg_flagged, size);
-			msg = msg_charbuf->buf;
-			*/
 
 			if (npe_flagged == NULL)
 				goto Bail;
 
 			/* interest parsing without trace flag */
-			struct ccn_charbuf *ccnb_without_flag;
-			ccn_parse_interest_without_flag(msg, size, pi, comps, ccnb_without_flag);
+			ccn_parse_interest_without_flag(msg_flagged, size, pi, comps, msgbuf);
+			msg = msgbuf->buf;
+			size = msgbuf->length;
 			/* name prefix seek without trace flag */
-			hashtb_start(h->nameprefix_tab, e);
-			res = nameprefix_seek(h, e, msg, comps, pi->prefix_comps);
-			npe= e->data;
+			hashtb_start(h->nameprefix_tab, ef);
+			res = nameprefix_seek(h, ef, msg, comps, pi->prefix_comps);
+			npe= ef->data;
 
+			//debug
 			struct propagating_entry *pe = &(npe->pe_head);
-			printf("propagating_entry of npe :\n\t%s\n",
-					get_interest_name(pe->interest_msg,pe->size));
+			printf("<Nonflagged>\nmsg:%s\nnpe:%s\npe from %d\n",
+					msg,
+					get_interest_name((unsigned char*)ef->key, ef->keysize),
+					pe->faceid);
 			pe = &(npe_flagged->pe_head);
-			printf("propagating_entry of npe_flagged :\n\t%s\n",
-					get_interest_name(pe->interest_msg,pe->size));
+			printf("<Flagged>msg:%s\nnpe:%s\npe from %d\n",
+					msg_flagged,
+					get_interest_name((unsigned char*)e->key, e->keysize),
+					pe->faceid);
+			//debug
 		}
 
         if (npe == NULL)
@@ -3783,15 +3791,18 @@ printf("[trace interest] flagged interest detected !\n");
         }
         if (!matched && pi->scope != 0 && npe != NULL) {
 			if (for_trace)
-            	propagate_interest(h, face, msg, pi_flagged, npe_flagged, pi, npe);
+            	propagate_interest(h, face, msg_flagged, pi_flagged, npe_flagged, msg, pi, npe);
 			else
-				propagate_interest(h, face, msg, pi, npe, NULL, NULL);
+				propagate_interest(h, face, msg, pi, npe, NULL, NULL, NULL);
 		}
 
     Bail:
         hashtb_end(e);
+        hashtb_end(ef);
     }
     indexbuf_release(h, comps);
+	ccn_indexbuf_destroy(&comps_flagged);
+	ccn_charbuf_destroy(&msgbuf);
 }
 
 /**
