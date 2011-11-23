@@ -535,7 +535,7 @@ int
 ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
                    struct ccn_parsed_interest *interest,
                    struct ccn_indexbuf *components,
-                   unsigned char *msg_without_flag);
+                   struct ccn_charbuf *ccnb_without_flag);
 
 
 
@@ -619,6 +619,13 @@ int ccn_parse_ContentObject(const unsigned char *msg, size_t size,
                             struct ccn_parsed_ContentObject *x,
                             struct ccn_indexbuf *components);
 
+int ccn_parse_ContentObject_with_Router(const unsigned char *msg, size_t size,
+                            struct ccn_parsed_ContentObject *x,
+                            struct ccn_indexbuf *components,
+                            struct ccn_indexbuf *router_components);
+
+
+
 void ccn_digest_ContentObject(const unsigned char *msg,
                               struct ccn_parsed_ContentObject *pc);
 
@@ -629,7 +636,7 @@ void ccn_digest_ContentObject(const unsigned char *msg,
  */
 int ccn_parse_Name(struct ccn_buf_decoder *d, struct ccn_indexbuf *components);
 
-int ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components, const unsigned char *msg, size_t size, unsigned char *msg_without_flag);
+int ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *components, const unsigned char *msg, size_t size, struct ccn_charbuf *ccnb_without_flag);
 
 /*
  * ccn_compare_names:
