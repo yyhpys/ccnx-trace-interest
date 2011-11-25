@@ -625,7 +625,6 @@ int ccn_parse_ContentObject_with_Router(const unsigned char *msg, size_t size,
                             struct ccn_indexbuf *router_components);
 
 
-
 void ccn_digest_ContentObject(const unsigned char *msg,
                               struct ccn_parsed_ContentObject *pc);
 
@@ -925,3 +924,6 @@ int ccn_create_version(struct ccn *h,
                        intmax_t secs, int nsecs);
 
 #endif
+
+
+

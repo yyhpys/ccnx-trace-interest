@@ -111,8 +111,11 @@ static void ccn_append_link_stuff(struct ccnd_handle *h,
 static int process_incoming_link_message(struct ccnd_handle *h,
                                          struct face *face, enum ccn_dtag dtag,
                                          unsigned char *msg, size_t size);
+
 static int
 is_interest_for_trace(unsigned char *msg, size_t size);
+
+
 
 static void
 cleanup_at_exit(void)
