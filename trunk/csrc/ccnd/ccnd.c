@@ -1148,6 +1148,21 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
     b = content->comps[n - 1];
     if (b - a != 36)
         abort(); /* strange digest length */
+	
+	if (0 /* test this content is for trace */) {
+		struct ccn_parsed_ContentObject pco = {0};
+		struct ccn_parsed_ContentObject *pc = &pco;
+		struct ccn_indexbuf *router_comps = ccn_indexbuf_create();
+		if (0 /* content has no <router> item */) {
+			// add <router> </router>
+		}
+		ccn_parse_ContentObject_with_Router(content->key, content->key_size, pc, NULL, router_comps);
+
+		// add h->ccndid as a last component of <router>
+
+		ccn_indexbuf_destroy(router_comps);
+	}
+
     stuff_and_send(h, face, content->key, a, content->key + b, size - b);
     ccnd_meter_bump(h, face->meter[FM_DATO], 1);
     h->content_items_sent += 1;
