@@ -25,6 +25,24 @@
 #include <ccn/indexbuf.h>
 #include <ccn/uri.h>
 
+//
+static int
+is_interest_for_trace(unsigned char *msg, size_t size){
+    char* parsed_name;
+    char* flag_pointer;
+
+    parsed_name = get_interest_name(msg, size);
+	flag_pointer = strstr(parsed_name,TRACE_INTEREST_FLAG);
+	if(flag_pointer != NULL){
+		return 1;
+	}
+	else{
+		return 0;
+	}
+}
+
+
+
 struct ccn_buf_decoder *
 ccn_buf_decoder_start(struct ccn_buf_decoder *d,
                       const unsigned char *buf, size_t size)
@@ -1123,7 +1141,14 @@ ccn_parse_ContentObject(const unsigned char *msg, size_t size,
         x->name_ncomps = res;
         x->offset[CCN_PCO_E_ComponentLast] = d->decoder.token_index - 1;
         x->offset[CCN_PCO_E_Name] = d->decoder.token_index;
-        ccn_parse_SignedInfo(d, x);
+
+	if (is_interest_for_trace(msg, size))
+		ccn_parse_SignedInfo_with_Router(d, x, NULL);
+  	else
+		ccn_parse_SignedInfo(d, x);
+
+	//ccn_parse_SignedInfo(d, x);
+
         x->offset[CCN_PCO_B_Content] = d->decoder.token_index;
         ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Content, 0, -1);
         x->offset[CCN_PCO_E_Content] = d->decoder.token_index;
