@@ -340,6 +340,9 @@ ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *comp
                 int right_side_size = size - temp_index;
                 ccn_charbuf_append(ccnb_without_flag, msg + temp_index, right_side_size);
 
+char *msg_after = get_interest_name(ccnb_without_flag->buf, ccnb_without_flag->length);
+printf(" !!!!!! MSGMSG !!!!!! - %s msg: %d, msg_wo_flag %d \n", msg_after, size, ccnb_without_flag->length);
+
                 state=-1;	
             }
 
@@ -352,12 +355,13 @@ ccn_parse_Name_without_flag(struct ccn_buf_decoder *d, struct ccn_indexbuf *comp
 
             //TRACE_FLAG CHECK
             if (strcmp(TRACE_INTEREST_FLAG, current_comp) != 0) {
-                if (components != NULL)
-                    ccn_indexbuf_append_element(components, temp_index);
+                //if (components != NULL)
+                //    ccn_indexbuf_append_element(components, temp_index);
                 ncomp += 1;
             } else {
                 ccn_charbuf_append(ccnb_without_flag, msg, temp_index);
                 state=1;
+printf(" PARSE3 \n");
             }
 
             if (ccn_buf_match_blob(d, NULL, NULL))
@@ -673,6 +677,7 @@ ccn_parse_interest(const unsigned char *msg, size_t size,
         interest->offset[CCN_PI_B_Name] = d->decoder.element_index;
         interest->offset[CCN_PI_B_Component0] = d->decoder.index;
         ncomp = ccn_parse_Name(d, components);
+
         if (d->decoder.state < 0) {
             memset(interest->offset, 0, sizeof(interest->offset));
             return(d->decoder.state);
@@ -778,10 +783,6 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
     int ncomp = 0;
     int res;
 
-    struct ccn_indexbuf *temp_comp;
-    temp_comp = ccn_indexbuf_create();
-
-
     if (ccn_buf_match_dtag(d, CCN_DTAG_Interest)) {
         if (components == NULL) {
             /* We need to have the component offsets. */
@@ -794,11 +795,10 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
         ccn_buf_advance(d);
         interest->offset[CCN_PI_B_Name] = d->decoder.element_index;
         interest->offset[CCN_PI_B_Component0] = d->decoder.index;
-        ncomp = ccn_parse_Name_without_flag(d, temp_comp, msg, size, ccnb_without_flag);
-    }	
-
-        ccn_indexbuf_destroy(&temp_comp);
-		printf(" !!! end !!! remove flag from msg. size : %d / size without flag %u\n", size, ccnb_without_flag->length);
+        ncomp = ccn_parse_Name_without_flag(d, components, msg, size, ccnb_without_flag);
+    }
+	
+		printf(" !!! end !!! remove flag from msg. size : %d / size without flag %d\n", size, ccnb_without_flag->length);
 		printf(" !!! start !!! normal parse interest(with flag removed msg)\n");
 	return ccn_parse_interest(ccnb_without_flag->buf, ccnb_without_flag->length, interest, components);
 /*
