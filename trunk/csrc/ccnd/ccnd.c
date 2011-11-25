@@ -1152,21 +1152,44 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
     if (b - a != 36)
         abort(); /* strange digest length */
 	
-	if (0 /* test this content is for trace */) {
+	int for_trace = 0; // test if this content is for trace
+	if (for_trace) {
+		struct ccn_charbuf *cb = ccn_charbuf_create();
 		struct ccn_parsed_ContentObject pco = {0};
 		struct ccn_parsed_ContentObject *pc = &pco;
 		struct ccn_indexbuf *router_comps = ccn_indexbuf_create();
-		if (0 /* content has no <router> item */) {
-			// add <router> </router>
-		}
+
 		ccn_parse_ContentObject_with_Router(content->key, content->key_size, pc, NULL, router_comps);
 
-		// add h->ccndid as a last component of <router>
+		if (router_comps->n <= 0 /* if content has no <router> item */) {
+			// add '~~~<router>' to cb
+		}
+		else {
+			int i = router_comps->buf[router_comps->n - 1];
+			ccn_charbuf_append(cb, content->key, i);
+		}
 
+		// add '<compnent> h->ccnd_id </component> </router>' to cb
+		/* simple version 
+		ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
+		ccn_charbuf_append(cb, h->ccnd_id, sizeof(h->ccnd_id));
+		ccn_charbuf_append_closer(cb); // </component>
+		ccn_charbuf_append_closer(cb); // </router>
+		*/
+		/* just like 'Name' version */
+		ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
+		ccn_charbuf_append_tt(cb, sizeof(h->ccnd_id), CCN_BLOB); // always 32
+		ccn_charbuf_append(cb, h->ccnd_id, sizeof(h->ccnd_id));
+		ccn_charbuf_append_closer(cb); // </component>
+		ccn_charbuf_append_closer(cb); // </router>
+		
+
+    	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
 		ccn_indexbuf_destroy(router_comps);
 	}
-
-    stuff_and_send(h, face, content->key, a, content->key + b, size - b);
+	else {
+    	stuff_and_send(h, face, content->key, a, content->key + b, size - b);
+	}
     ccnd_meter_bump(h, face->meter[FM_DATO], 1);
     h->content_items_sent += 1;
 }
