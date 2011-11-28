@@ -1155,11 +1155,29 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		struct ccn_charbuf *cb = ccn_charbuf_create();
 		struct ccn_parsed_ContentObject pco = {0};
 		struct ccn_parsed_ContentObject *pc = &pco;
-		struct ccn_indexbuf *router_comps = ccn_indexbuf_create();
+		struct ccn_indexbuf *router_comps;
 
+		ccn_parse_ContentObject(content->key, content->size, pc, NULL);
+
+		if (pc->offset[CCN_PCO_B_Router] == -1) {
+			int i = pc->offset[CCN_PCO_E_KeyLocator];
+			ccn_charbuf_append(cb, content->key, i);
+			ccn_charbuf_append_tt(cb, CCN_DTAG_Router, CCN_DTAG);
+
+		}
+		else {
+			int i;
+			router_comps = ccn_indexbuf_create();
+			ccn_parse_ContentObject_with_Router(content->key, content->size, pc, NULL, router_comps);
+			i = router_comps->buf[router_comps->n - 1];
+			ccn_charbuf_append(cb, content->key, i);
+			ccn_indexbuf_destroy(router_comps);
+		}
+
+		/*
 		ccn_parse_ContentObject_with_Router(content->key, content->key_size, pc, NULL, router_comps);
 
-		if (router_comps->n <= 0 /* if content has no <router> item */) {
+		if (router_comps->n <= 0 ) {
 			int i = pc->offset[CCN_PCO_E_KeyLocator];
 			ccn_charbuf_append(cb, content->key, i);
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Router, CCN_DTAG);
@@ -1169,7 +1187,7 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 			int i = router_comps->buf[router_comps->n - 1];
 			ccn_charbuf_append(cb, content->key, i);
 		}
-
+		*/
 		// add '<compnent> h->ccnd_id </component> </router>' to cb
 		/* simple version 
 		ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
@@ -1186,11 +1204,10 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		
 
     	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
-		ccn_indexbuf_destroy(router_comps);
 		h->forTrace = 0;
 	}
 	else {
-    	stuff_and_send(h, face, content->key, a, content->key + b, size - b);
+	   	stuff_and_send(h, face, content->key, a, content->key + b, size - b);
 	}
     ccnd_meter_bump(h, face->meter[FM_DATO], 1);
     h->content_items_sent += 1;
@@ -3716,7 +3733,6 @@ printf("[trace interest] flagged interest detected !\n");
 					get_interest_name((unsigned char*)e->key, e->keysize),
 					pe->faceid);
 			//debug
-			h->forTrace = 1;
 		}
 
         if (npe == NULL)
@@ -3808,6 +3824,8 @@ printf("[trace interest] flagged interest detected !\n");
             }
             if (last_match != NULL){
                 content = last_match;
+				if(for_trace)
+					h->forTrace = 1;
 				//debug
 				printf("real cs match!!\n");
 	    	}
@@ -3855,6 +3873,7 @@ printf("[trace interest] flagged interest detected !\n");
 	else {
     	indexbuf_release(h, comps);
 	}
+	h->forTrace = 0;
 }
 
 /**
