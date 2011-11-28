@@ -977,6 +977,7 @@ ccn_parse_Signature(struct ccn_buf_decoder *d, struct ccn_parsed_ContentObject *
 static int
 ccn_parse_SignedInfo(struct ccn_buf_decoder *d, struct ccn_parsed_ContentObject *x)
 {
+	x->offset[CCN_PCO_B_Router] = x->offset[CCN_PCO_E_Router] = -1;
     x->offset[CCN_PCO_B_SignedInfo] = d->decoder.token_index;
     if (ccn_buf_match_dtag(d, CCN_DTAG_SignedInfo)) {
         ccn_buf_advance(d);
