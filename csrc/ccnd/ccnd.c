@@ -114,9 +114,6 @@ static int process_incoming_link_message(struct ccnd_handle *h,
 
 static int
 is_interest_for_trace(const unsigned char *msg, size_t size);
-int is_contain_DTAG(const unsigned char *msg, size_t size, int dtag);
-void insert_router_tag_to_content(struct content_entry *content);
-int index_DTAG(const unsigned char *msg, size_t size, int dtag);
 
 static void
 cleanup_at_exit(void)
@@ -1153,7 +1150,7 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
     if (b - a != 36)
         abort(); /* strange digest length */
 	
-	int for_trace = 0; // test if this content is for trace
+	int for_trace = h->forTrace; // test if this content is for trace
 	if (for_trace) {
 		struct ccn_charbuf *cb = ccn_charbuf_create();
 		struct ccn_parsed_ContentObject pco = {0};
@@ -1163,7 +1160,10 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		ccn_parse_ContentObject_with_Router(content->key, content->key_size, pc, NULL, router_comps);
 
 		if (router_comps->n <= 0 /* if content has no <router> item */) {
-			// add '~~~<router>' to cb
+			int i = pc->offset[CCN_PCO_E_KeyLocator];
+			ccn_charbuf_append(cb, content->key, i);
+			ccn_charbuf_append_tt(cb, CCN_DTAG_Router, CCN_DTAG);
+
 		}
 		else {
 			int i = router_comps->buf[router_comps->n - 1];
@@ -1187,6 +1187,7 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 
     	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
 		ccn_indexbuf_destroy(router_comps);
+		h->forTrace = 0;
 	}
 	else {
     	stuff_and_send(h, face, content->key, a, content->key + b, size - b);
@@ -3715,6 +3716,7 @@ printf("[trace interest] flagged interest detected !\n");
 					get_interest_name((unsigned char*)e->key, e->keysize),
 					pe->faceid);
 			//debug
+			h->forTrace = 1;
 		}
 
         if (npe == NULL)
@@ -3809,9 +3811,6 @@ printf("[trace interest] flagged interest detected !\n");
 				//debug
 				printf("real cs match!!\n");
 	    	}
-			//debugb
-		//	insert_router_tag_to_content(content);
-			//debuge
             if (content != NULL) {
                 /* Check to see if we are planning to send already */
                 enum cq_delay_class c;
@@ -5179,53 +5178,4 @@ is_interest_for_trace(const unsigned char *msg, size_t size){
 	}
 }
 
-int is_contain_DTAG(const unsigned char *msg, size_t size, int dtag){
-	struct ccn_buf_decoder decoder;
-	struct ccn_buf_decoder *d = ccn_buf_decoder_start(&decoder, msg, size);
-	while((d->decoder).index < (d->size-10)){
-		if(ccn_buf_match_dtag(d, dtag)){
-			return 1;
-		}
-		ccn_buf_advance(d);
-	}
-	return 0;
-}
 
-int index_DTAG(const unsigned char *msg, size_t size, int dtag){
-	struct ccn_buf_decoder decoder;
-	struct ccn_buf_decoder *d = ccn_buf_decoder_start(&decoder, msg, size);
-	while((d->decoder).index < (d->size-10)){
-		if(ccn_buf_match_dtag(d, dtag)){
-			return d->decoder.element_index;
-		}
-		ccn_buf_advance(d);
-	}
-	return -1;
-}
-
-
-void insert_router_tag_to_content(struct content_entry *content){
-/*	struct ccn_charbuf *cb = ccn_charbuf_create();
-	struct ccn_parsed_ContentObject pco = {0};
-	struct ccn_parsed_ContentObject *pc = &pco;
-	struct ccn_indexbuf *router_comps = ccn_indexbuf_create();
-	
-	printf("insert_router_tag executed\n");	
-*/	//if content has no <router> item
-//	if(!is_contain_DTAG(content->key, content->size, CCN_DTAG_Name)){
-		printf("There is no router\n");
-	/*	int i;
-		i = content->size;
-//		i = index_DTAG(content->key, content->size, CCN_DTAG_KeyLocator);
-		ccn_charbuf_append(cb, content->key, i);
-		ccn_charbuf_append_tt(cb, CCN_DTAG_Name, CCN_DTAG);
-		ccn_charbuf_append_closer(cb);
-		ccn_charbuf_append(cb, content->key + i, content->size - i);
-		//content->key = cb->buf;
-		//content->size = cb->length;
-		*/
-//	}
-//	else{
-		printf("There is name\n");
-//	}
-}
