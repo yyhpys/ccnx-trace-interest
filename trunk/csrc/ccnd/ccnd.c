@@ -1156,12 +1156,22 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		struct ccn_parsed_ContentObject pco = {0};
 		struct ccn_parsed_ContentObject *pc = &pco;
 		struct ccn_indexbuf *router_comps;
+		struct ccn_indexbuf *name_comps = ccn_indexbuf_create;
+		int m;
 
-		ccn_parse_ContentObject(content->key, content->size, pc, NULL);
+		ccn_parse_ContentObject(content->key, content->size, pc, name_comps);
 
 		if (pc->offset[CCN_PCO_B_Router] == -1) {
-			int i = pc->offset[CCN_PCO_E_KeyLocator];
+			int i = name_comps->buf[name_comps->n - 1];
+			int j = pc->offset[CCN_PCO_E_KeyLocator];
+			int k = pc->offset[CCN_PCO_E_Name];
 			ccn_charbuf_append(cb, content->key, i);
+			ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
+			ccn_charbuf_append_tt(cb, sizeof(TRACE_INTEREST_FLAG), CCN_BLOB); // always 32
+			ccn_charbuf_append_string(cb, TRACE_INTEREST_FLAG);
+			ccn_charbuf_append_closer(cb); // </component>
+			ccn_charbuf_append_closer(cb); // </name>
+			ccn_charbuf_append(cb, (content->key)+k, j-k);
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Router, CCN_DTAG);
 
 		}
@@ -1201,6 +1211,9 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		ccn_charbuf_append(cb, h->ccnd_id, sizeof(h->ccnd_id));
 		ccn_charbuf_append_closer(cb); // </component>
 		ccn_charbuf_append_closer(cb); // </router>
+		ccn_charbuf_append_closer(cb); // </SignedInfo>
+		m = pc->offset[CCN_PCO_B_Content];
+		ccn_charbuf_append(cb, (content->key)+m, (content->size)-m);
 		
 
     	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
@@ -3992,6 +4005,9 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
         ccnd_msg(h, "error parsing ContentObject - code %d", res);
         goto Bail;
     }
+	if(is_interest_for_trace(msg, size)){
+		h->forTrace = 1;
+	}
     ccnd_meter_bump(h, face->meter[FM_DATI], 1);
     if (comps->n < 1 ||
         (keysize = comps->buf[comps->n - 1]) > 65535 - 36) {
@@ -4123,6 +4139,8 @@ Bail:
             }
         }
     }
+	if(h->forTrace)
+		h->forTrace = 0;
 }
 
 static void
