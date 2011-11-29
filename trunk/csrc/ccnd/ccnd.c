@@ -1133,6 +1133,8 @@ shutdown_client_fd(struct ccnd_handle *h, int fd)
 static void
 send_content(struct ccnd_handle *h, struct face *face, struct content_entry *content)
 {
+printf("START OF send_content \n");
+
     int n, a, b, size;
     if ((face->flags & CCN_FACE_NOSEND) != 0) {
         // XXX - should count this.
@@ -1149,9 +1151,11 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
     b = content->comps[n - 1];
     if (b - a != 36)
         abort(); /* strange digest length */
-	
+
 	int for_trace = h->forTrace; // test if this content is for trace
 	if (for_trace) {
+		printf("FOR TRACE IN send_content \n");
+
 		struct ccn_charbuf *cb = ccn_charbuf_create();
 		struct ccn_parsed_ContentObject pco = {0};
 		struct ccn_parsed_ContentObject *pc = &pco;
@@ -1215,6 +1219,7 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		m = pc->offset[CCN_PCO_B_Content];
 		ccn_charbuf_append(cb, (content->key)+m, (content->size)-m);
 		
+printf("START BEFORE stuff_and_send \n");
 
     	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
 		h->forTrace = 0;
@@ -3709,7 +3714,7 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 		/* test if the name is flagged */
 		for_trace = is_interest_for_trace(msg, size);
 		if (for_trace) {
-printf("[trace interest] flagged interest detected !\n");
+			printf("[trace interest] flagged interest detected !\n");
 
 			/* swap */
 			parsed_interest_flagged = parsed_interest;
@@ -3725,16 +3730,22 @@ printf("[trace interest] flagged interest detected !\n");
 
 			printf(">>>>>>>>> now start parsing without flag !!\n");
 			/* interest parsing without trace flag */
-			ccn_parse_interest_without_flag(msg_flagged, size, pi, comps, msgbuf);
+			msgbuf = ccn_charbuf_create();
+			res = ccn_parse_interest_without_flag(msg_flagged, size, pi, comps, msgbuf);
 			msg = msgbuf->buf;
 			size = msgbuf->length;
 			printf(">>>>>>>>> end parsing without flag !!\n");
+			printf("<After nonflag parsing>\nMSG:%s NAME: %s NCOMP: %d\n",
+					msg,
+					get_interest_name(msg, size), res);
+
 			/* name prefix seek without trace flag */
 			hashtb_start(h->nameprefix_tab, ef);
 			res = nameprefix_seek(h, ef, msg, comps, pi->prefix_comps);
 			npe= ef->data;
 
 			//debug
+			printf("nameprefix_seek_res = %d\n", res);
 			struct propagating_entry *pe = &(npe->pe_head);
 			printf("<Nonflagged>\nmsg:%s\nnpe:%s\npe from %d\n",
 					msg,
