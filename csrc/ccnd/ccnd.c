@@ -1136,6 +1136,10 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 
     int n, a, b, size;
+	FILE *fp1 = fopen("./beforenameappend", "w");
+	FILE *fp2 = fopen("./afternameappend","w");
+	FILE *fp3 = fopen("./afterccndidappend","w");
+
     if ((face->flags & CCN_FACE_NOSEND) != 0) {
         // XXX - should count this.
         return;
@@ -1163,26 +1167,29 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 		struct ccn_indexbuf *router_comps;
 		struct ccn_indexbuf *name_comps = ccn_indexbuf_create();
 		int m;
-
 		ccn_parse_ContentObject(content->key, content->size, pc, name_comps);
 
 		if (!is_interest_for_trace(content->key, content->size)) {
 		//if (pc->offset[CCN_PCO_B_Router] == -1) {
 			printf("THIS IS first node\n");
 			// if content name doesnot have trace flag
-			int i = name_comps->buf[name_comps->n - 1];
+			int i = name_comps->buf[h->numComponent - 1];
 			int j = pc->offset[CCN_PCO_E_KeyLocator];
 			int k = pc->offset[CCN_PCO_E_Name];
+			printf("before flag append : %s\n", get_interest_name(content->key, content->size));
+			fwrite(content->key, sizeof(unsigned char), content->size, fp1);
 			ccn_charbuf_append(cb, content->key, i);
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
-			ccn_charbuf_append_tt(cb, sizeof(TRACE_INTEREST_FLAG), CCN_BLOB);
-			ccn_charbuf_append_string(cb, TRACE_INTEREST_FLAG);
+			ccn_charbuf_append_tt(cb, sizeof(TRACE_INTEREST_FLAG)-1, CCN_BLOB);
+			ccn_charbuf_append(cb, TRACE_INTEREST_FLAG, sizeof(TRACE_INTEREST_FLAG)-1);
 			ccn_charbuf_append_closer(cb); // </component>
-			ccn_charbuf_append_closer(cb); // </name>
-			ccn_charbuf_append(cb, (content->key)+k, j-k);
+			ccn_charbuf_append(cb, content->key+i, j-i);
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Router, CCN_DTAG);
 
 			printf("after flag append : %s\n", get_interest_name(cb->buf, cb->length));
+			fwrite(cb->buf, sizeof(unsigned char), cb->length, fp2);
+			a += sizeof(TRACE_INTEREST_FLAG)+2;
+			b += sizeof(TRACE_INTEREST_FLAG)+2;
 		}
 		else {
 			printf("THIS IS inter node\n");
@@ -1231,6 +1238,8 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 		
 		printf("START BEFORE stuff_and_send \n");
 
+		fwrite(cb->buf, sizeof(unsigned char), cb->length, fp3);
+
     	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
 
 		h->forTrace = 0;
@@ -1240,6 +1249,10 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 	}
     ccnd_meter_bump(h, face->meter[FM_DATO], 1);
     h->content_items_sent += 1;
+	fclose(fp1);
+	fclose(fp2);
+	fclose(fp3);
+
 	printf("END OF send_content\n");
 }
 
@@ -1631,6 +1644,7 @@ stuff_and_send(struct ccnd_handle *h, struct face *face,
         ccn_charbuf_append(c, data1, size1);
 		if (size2 != 0)
             ccn_charbuf_append(c, data2, size2);
+		printf("stuff and send: after sum: %s\n",get_interest_name(c->buf, c->length));
         ccn_stuff_interest(h, face, c);
         ccn_append_link_stuff(h, face, c);
     }
@@ -3750,6 +3764,7 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 			size = msgbuf->length;
 			printf("<After removing flag> MSG: %s NCOMP: %d (%d)\n", get_interest_name(msg, size), comps->n, comps_flagged->n);
 
+			h->numComponent = comps->n;
 			/* name prefix seek without trace flag */
 			hashtb_start(h->nameprefix_tab, ef);
 			res = nameprefix_seek(h, ef, msg, comps, pi->prefix_comps);
