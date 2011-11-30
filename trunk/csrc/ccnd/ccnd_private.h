@@ -144,6 +144,7 @@ struct ccnd_handle {
     void (*appnonce)(struct ccnd_handle *, struct face *, struct ccn_charbuf *);
                                     /**< pluggable nonce generation */
 	int forTrace;
+	int numComponent;
 };
 
 /**
