@@ -1133,7 +1133,7 @@ shutdown_client_fd(struct ccnd_handle *h, int fd)
 static void
 send_content(struct ccnd_handle *h, struct face *face, struct content_entry *content)
 {
-printf("START OF send_content \n");
+printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 
     int n, a, b, size;
     if ((face->flags & CCN_FACE_NOSEND) != 0) {
@@ -1153,6 +1153,7 @@ printf("START OF send_content \n");
         abort(); /* strange digest length */
 
 	int for_trace = h->forTrace; // test if this content is for trace
+
 	if (for_trace) {
 		printf("FOR TRACE IN send_content \n");
 
@@ -1160,30 +1161,38 @@ printf("START OF send_content \n");
 		struct ccn_parsed_ContentObject pco = {0};
 		struct ccn_parsed_ContentObject *pc = &pco;
 		struct ccn_indexbuf *router_comps;
-		struct ccn_indexbuf *name_comps = ccn_indexbuf_create;
+		struct ccn_indexbuf *name_comps = ccn_indexbuf_create();
 		int m;
 
 		ccn_parse_ContentObject(content->key, content->size, pc, name_comps);
 
-		if (pc->offset[CCN_PCO_B_Router] == -1) {
+		if (!is_interest_for_trace(content->key, content->size)) {
+		//if (pc->offset[CCN_PCO_B_Router] == -1) {
+			printf("THIS IS first node\n");
+			// if content name doesnot have trace flag
 			int i = name_comps->buf[name_comps->n - 1];
 			int j = pc->offset[CCN_PCO_E_KeyLocator];
 			int k = pc->offset[CCN_PCO_E_Name];
 			ccn_charbuf_append(cb, content->key, i);
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
-			ccn_charbuf_append_tt(cb, sizeof(TRACE_INTEREST_FLAG), CCN_BLOB); // always 32
+			ccn_charbuf_append_tt(cb, sizeof(TRACE_INTEREST_FLAG), CCN_BLOB);
 			ccn_charbuf_append_string(cb, TRACE_INTEREST_FLAG);
 			ccn_charbuf_append_closer(cb); // </component>
 			ccn_charbuf_append_closer(cb); // </name>
 			ccn_charbuf_append(cb, (content->key)+k, j-k);
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Router, CCN_DTAG);
 
+			printf("after flag append : %s\n", get_interest_name(cb->buf, cb->length));
 		}
 		else {
+			printf("THIS IS inter node\n");
+			// if content name has trace flag
 			int i;
 			router_comps = ccn_indexbuf_create();
 			ccn_parse_ContentObject_with_Router(content->key, content->size, pc, NULL, router_comps);
+		printf(" !! n = %d !!", router_comps->n);
 			i = router_comps->buf[router_comps->n - 1];
+		printf(" !! i = %d !!\n", i);
 			ccn_charbuf_append(cb, content->key, i);
 			ccn_indexbuf_destroy(router_comps);
 		}
@@ -1210,6 +1219,7 @@ printf("START OF send_content \n");
 		ccn_charbuf_append_closer(cb); // </router>
 		*/
 		/* just like 'Name' version */
+		printf("BEFORE append ccnd id component\n");
 		ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
 		ccn_charbuf_append_tt(cb, sizeof(h->ccnd_id), CCN_BLOB); // always 32
 		ccn_charbuf_append(cb, h->ccnd_id, sizeof(h->ccnd_id));
@@ -1219,9 +1229,10 @@ printf("START OF send_content \n");
 		m = pc->offset[CCN_PCO_B_Content];
 		ccn_charbuf_append(cb, (content->key)+m, (content->size)-m);
 		
-printf("START BEFORE stuff_and_send \n");
+		printf("START BEFORE stuff_and_send \n");
 
     	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
+
 		h->forTrace = 0;
 	}
 	else {
@@ -1229,6 +1240,7 @@ printf("START BEFORE stuff_and_send \n");
 	}
     ccnd_meter_bump(h, face->meter[FM_DATO], 1);
     h->content_items_sent += 1;
+	printf("END OF send_content\n");
 }
 
 static enum cq_delay_class
@@ -3634,6 +3646,7 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 	struct nameprefix_entry *npe_flagged = NULL;
     struct hashtb_enumerator eef;
     struct hashtb_enumerator *ef = &eef;
+	size_t size_flagged;
 	/* ---- end ---- */
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
@@ -3711,6 +3724,7 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
         npe = e->data;
 
 
+		printf(">>>>>>>>> %s\n", get_interest_name(msg, size)); // debug
 		/* test if the name is flagged */
 		for_trace = is_interest_for_trace(msg, size);
 		if (for_trace) {
@@ -3724,20 +3738,17 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 			npe_flagged = npe;
 			npe = NULL;
 			msg_flagged = msg;
+			size_flagged = size;
 
 			if (npe_flagged == NULL)
 				goto Bail;
 
-			printf(">>>>>>>>> now start parsing without flag !!\n");
 			/* interest parsing without trace flag */
 			msgbuf = ccn_charbuf_create();
 			res = ccn_parse_interest_without_flag(msg_flagged, size, pi, comps, msgbuf);
 			msg = msgbuf->buf;
 			size = msgbuf->length;
-			printf(">>>>>>>>> end parsing without flag !!\n");
-			printf("<After nonflag parsing>\nMSG:%s NAME: %s NCOMP: %d\n",
-					msg,
-					get_interest_name(msg, size), res);
+			printf("<After removing flag> MSG: %s NCOMP: %d (%d)\n", get_interest_name(msg, size), comps->n, comps_flagged->n);
 
 			/* name prefix seek without trace flag */
 			hashtb_start(h->nameprefix_tab, ef);
@@ -3745,17 +3756,17 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 			npe= ef->data;
 
 			//debug
-			printf("nameprefix_seek_res = %d\n", res);
-			struct propagating_entry *pe = &(npe->pe_head);
-			printf("<Nonflagged>\nmsg:%s\nnpe:%s\npe from %d\n",
-					msg,
+			/*
+			printf("nameprefix seek res = %d\n", res);
+			printf("<Non flagged>\n\tnameprefix hashtb key:%s\n\tpropagating entry:%s\n\tfrom %d / next : %d\n",
 					get_interest_name((unsigned char*)ef->key, ef->keysize),
-					pe->faceid);
-			pe = &(npe_flagged->pe_head);
-			printf("<Flagged>msg:%s\nnpe:%s\npe from %d\n",
-					msg_flagged,
+					get_interest_name((npe->pe_head).next->interest_msg, (npe->pe_head).next->size),
+					(npe->pe_head).next->faceid, (npe->pe_head).next->next);
+			printf("<Flagged>\n\tnameprefix hashtb key:%s\n\tpropagating entry:%s\n\tfrom %d / next : %d\n",
 					get_interest_name((unsigned char*)e->key, e->keysize),
-					pe->faceid);
+					get_interest_name((npe_flagged->pe_head).next->interest_msg, (npe_flagged->pe_head).next->size),
+					(npe_flagged->pe_head).next->faceid,(npe_flagged->pe_head).next->next);
+			*/
 			//debug
 		}
 
@@ -3797,11 +3808,11 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
                     ccn_content_matches_interest(content->key,
                                        content->size,
                                        0, NULL, msg, size, pi)) {
-		    //debug
-	 	   if (content != NULL){
-			printf("CS Match-3\n");
-		    }
-	 	   //debug
+			//debug
+			if (content != NULL){
+				printf("CS Match-3\n");
+			}
+			//debug
                     if ((pi->orderpref & 1) == 0 && // XXX - should be symbolic
                         pi->prefix_comps != comps->n - 1 &&
                         comps->n == content->ncomps &&
@@ -3825,10 +3836,10 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
                 }
             move_along:
                 content = content_from_accession(h, content_skiplist_next(h, content));
-		//debug
-	  	  if (content != NULL){
-			printf("CS Match-4\n");
-		    }
+				//debug
+	  	  		if (content != NULL){
+					printf("CS Match-4\n");
+				}
     	        //debug
             check_next_prefix:
                 if (content != NULL &&
@@ -3840,11 +3851,11 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
                                         content->size);
                     content = NULL;
                 }
-		//debug
-        if (content != NULL){
-	   	    printf("CS Match-5\n");
-		}
-        //debug
+			//debug
+        	if (content != NULL){
+	   	    	printf("CS Match-5\n");
+			}
+        	//debug
             }
             if (last_match != NULL){
                 content = last_match;
@@ -3877,7 +3888,6 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
             }
         }
         if (!matched && pi->scope != 0 && npe != NULL) {
-			printf(">>>>>>>>> %s\n", get_interest_name(msg, size));
 			if (for_trace)
             	propagate_interest(h, face, msg_flagged, pi_flagged, npe_flagged, msg, pi, npe);
 			else
@@ -3897,7 +3907,6 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 	else {
     	indexbuf_release(h, comps);
 	}
-	h->forTrace = 0;
 }
 
 /**
