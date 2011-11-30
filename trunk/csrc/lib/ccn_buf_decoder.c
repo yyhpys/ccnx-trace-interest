@@ -814,8 +814,6 @@ ccn_parse_interest_without_flag(const unsigned char *msg, size_t size,
 	ncomp = ccn_parse_Name_without_flag(d, components, msg, size, ccnb_without_flag);
     }
 	
-		printf(" !!! end !!! remove flag from msg. size : %d / size without flag %d, ncomp %d\n", size, ccnb_without_flag->length, ncomp);
-		printf(" !!! start !!! normal parse interest(with flag removed msg)\n");
 	return ccn_parse_interest(ccnb_without_flag->buf, ccnb_without_flag->length, interest, components);
 /*
         if (d->decoder.state < 0) {
@@ -975,7 +973,8 @@ ccn_parse_Signature(struct ccn_buf_decoder *d, struct ccn_parsed_ContentObject *
 static int
 ccn_parse_SignedInfo(struct ccn_buf_decoder *d, struct ccn_parsed_ContentObject *x)
 {
-	x->offset[CCN_PCO_B_Router] = x->offset[CCN_PCO_E_Router] = -1;
+	//x->offset[CCN_PCO_B_Router] = x->offset[CCN_PCO_E_Router] = -1;
+
     x->offset[CCN_PCO_B_SignedInfo] = d->decoder.token_index;
     if (ccn_buf_match_dtag(d, CCN_DTAG_SignedInfo)) {
         ccn_buf_advance(d);
@@ -1038,6 +1037,7 @@ ccn_parse_SignedInfo(struct ccn_buf_decoder *d, struct ccn_parsed_ContentObject 
     else
         d->decoder.state = -__LINE__;
     x->offset[CCN_PCO_E_SignedInfo] = d->decoder.token_index;
+	
     if (d->decoder.state < 0)
         return (d->decoder.state);
     return(0);
@@ -1143,8 +1143,12 @@ ccn_parse_ContentObject(const unsigned char *msg, size_t size,
 
 	if (is_interest_for_trace(msg, size))
 		ccn_parse_SignedInfo_with_Router(d, x, NULL);
-  	else
+  	else { 
 		ccn_parse_SignedInfo(d, x);
+		x->offset[CCN_PCO_B_Router] = x->offset[CCN_PCO_E_Router] = -1;
+	}
+
+	printf("for trace : %d / router idx : %d\n", is_interest_for_trace(msg, size), x->offset[CCN_PCO_B_Router]);
 
 	//ccn_parse_SignedInfo(d, x);
 
