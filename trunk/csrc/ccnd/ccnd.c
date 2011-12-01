@@ -1136,9 +1136,6 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 
     int n, a, b, size;
-	FILE *fp1 = fopen("./beforenameappend", "w");
-	FILE *fp2 = fopen("./afternameappend","w");
-	FILE *fp3 = fopen("./afterccndidappend","w");
 
     if ((face->flags & CCN_FACE_NOSEND) != 0) {
         // XXX - should count this.
@@ -1167,33 +1164,59 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 		struct ccn_indexbuf *router_comps;
 		struct ccn_indexbuf *name_comps = ccn_indexbuf_create();
 		int m;
+
+		//debug
+		FILE *fp1 = fopen("./before_name_append", "w");
+		FILE *fp2 = fopen("./after_name_append","w");
+		FILE *fp3 = fopen("./after_ccndid_append","w");
+		//debug
+
 		ccn_parse_ContentObject(content->key, content->size, pc, name_comps);
 
+		// if content name doesnot have trace flag
 		if (!is_interest_for_trace(content->key, content->size)) {
 		//if (pc->offset[CCN_PCO_B_Router] == -1) {
 			printf("THIS IS first node\n");
-			// if content name doesnot have trace flag
 			int i = name_comps->buf[h->numComponent - 1];
 			int j = pc->offset[CCN_PCO_E_KeyLocator];
 			int k = pc->offset[CCN_PCO_E_Name];
 			printf("before flag append : %s\n", get_interest_name(content->key, content->size));
-			fwrite(content->key, sizeof(unsigned char), content->size, fp1);
+
+		//debug
+		if (fp1) {
+			int i;
+			for (i = 0; i < content->size; i++)
+				fputc( (content->key)[i], fp1);
+			fclose(fp1);
+		}
+		//debug
+		
 			ccn_charbuf_append(cb, content->key, i);
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
 			ccn_charbuf_append_tt(cb, sizeof(TRACE_INTEREST_FLAG)-1, CCN_BLOB);
 			ccn_charbuf_append(cb, TRACE_INTEREST_FLAG, sizeof(TRACE_INTEREST_FLAG)-1);
 			ccn_charbuf_append_closer(cb); // </component>
 			ccn_charbuf_append(cb, content->key+i, j-i);
+
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Router, CCN_DTAG);
 
 			printf("after flag append : %s\n", get_interest_name(cb->buf, cb->length));
-			fwrite(cb->buf, sizeof(unsigned char), cb->length, fp2);
+
+		//debug
+		if (fp2) {
+			int i;
+			for (i = 0; i < cb->length; i++)
+				fputc( (cb->buf)[i], fp2);
+			fclose(fp2);
+		}
+		//debug
+		
 			a += sizeof(TRACE_INTEREST_FLAG)+2;
 			b += sizeof(TRACE_INTEREST_FLAG)+2;
 		}
+		// if content name has trace flag
 		else {
 			printf("THIS IS inter node\n");
-			// if content name has trace flag
 			int i;
 			router_comps = ccn_indexbuf_create();
 			ccn_parse_ContentObject_with_Router(content->key, content->size, pc, NULL, router_comps);
@@ -1236,9 +1259,25 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 		m = pc->offset[CCN_PCO_B_Content];
 		ccn_charbuf_append(cb, (content->key)+m, (content->size)-m);
 		
-		printf("START BEFORE stuff_and_send \n");
+		//debug
+		if (fp3) {
+			int i;
+			for (i = 0; i < cb->length; i++)
+				fputc( (cb->buf)[i], fp3);
+			fclose(fp3);
+		}
+		//debug
+		
+		//debug
+		printf("TEST <router> tag is inserted well\n");
+		router_comps = ccn_indexbuf_create();
+		ccn_parse_ContentObject_with_Router(cb->buf, cb->length, pc, NULL, router_comps);
+		int i = router_comps->buf[router_comps->n - 1];
+		printf(" !! n = %d / i = %d !!", router_comps->n, i);
+		ccn_indexbuf_destroy(router_comps);
+		//debug
 
-		fwrite(cb->buf, sizeof(unsigned char), cb->length, fp3);
+		printf("START BEFORE stuff_and_send \n");
 
     	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
 
@@ -1249,9 +1288,6 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 	}
     ccnd_meter_bump(h, face->meter[FM_DATO], 1);
     h->content_items_sent += 1;
-	fclose(fp1);
-	fclose(fp2);
-	fclose(fp3);
 
 	printf("END OF send_content\n");
 }
