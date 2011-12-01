@@ -1050,12 +1050,8 @@ ccn_parse_ContentObject(const unsigned char *msg, size_t size,
 
 	if (is_interest_for_trace(msg, size))
 		ccn_parse_SignedInfo_with_Router(d, x, NULL);
-  	else { 
+  	else
 		ccn_parse_SignedInfo(d, x);
-		x->offset[CCN_PCO_B_Router] = x->offset[CCN_PCO_E_Router] = -1;
-	}
-
-	printf("for trace : %d / router idx : %d\n", is_interest_for_trace(msg, size), x->offset[CCN_PCO_B_Router]);
 
 	//ccn_parse_SignedInfo(d, x);
 
