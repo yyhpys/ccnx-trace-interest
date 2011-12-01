@@ -1133,8 +1133,6 @@ shutdown_client_fd(struct ccnd_handle *h, int fd)
 static void
 send_content(struct ccnd_handle *h, struct face *face, struct content_entry *content)
 {
-printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
-
     int n, a, b, size;
 
     if ((face->flags & CCN_FACE_NOSEND) != 0) {
@@ -1182,14 +1180,14 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 			int k = pc->offset[CCN_PCO_E_Name];
 			printf("before flag append : %s\n", get_interest_name(content->key, content->size));
 
-		//debug
-		if (fp1) {
-			int i;
-			for (i = 0; i < content->size; i++)
-				fputc( (content->key)[i], fp1);
-			fclose(fp1);
-		}
-		//debug
+			//debug
+			if (fp1) {
+				int i;
+				for (i = 0; i < content->size; i++)
+					fputc( (content->key)[i], fp1);
+				fclose(fp1);
+			}
+			//debug
 		
 			ccn_charbuf_append(cb, content->key, i);
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
@@ -1198,19 +1196,19 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 			ccn_charbuf_append_closer(cb); // </component>
 			ccn_charbuf_append(cb, content->key+i, j-i);
 
+			//debug
+			if (fp2) {
+				int i;
+				for (i = 0; i < cb->length; i++)
+					fputc( (cb->buf)[i], fp2);
+				fclose(fp2);
+			}
+			//debug
+		
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Router, CCN_DTAG);
 
 			printf("after flag append : %s\n", get_interest_name(cb->buf, cb->length));
 
-		//debug
-		if (fp2) {
-			int i;
-			for (i = 0; i < cb->length; i++)
-				fputc( (cb->buf)[i], fp2);
-			fclose(fp2);
-		}
-		//debug
-		
 			a += sizeof(TRACE_INTEREST_FLAG)+2;
 			b += sizeof(TRACE_INTEREST_FLAG)+2;
 		}
@@ -1220,9 +1218,7 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 			int i;
 			router_comps = ccn_indexbuf_create();
 			ccn_parse_ContentObject_with_Router(content->key, content->size, pc, NULL, router_comps);
-		printf(" !! n = %d !!", router_comps->n);
 			i = router_comps->buf[router_comps->n - 1];
-		printf(" !! i = %d !!\n", i);
 			ccn_charbuf_append(cb, content->key, i);
 			ccn_indexbuf_destroy(router_comps);
 		}
@@ -1241,13 +1237,8 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 			ccn_charbuf_append(cb, content->key, i);
 		}
 		*/
+
 		// add '<compnent> h->ccnd_id </component> </router>' to cb
-		/* simple version 
-		ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
-		ccn_charbuf_append(cb, h->ccnd_id, sizeof(h->ccnd_id));
-		ccn_charbuf_append_closer(cb); // </component>
-		ccn_charbuf_append_closer(cb); // </router>
-		*/
 		/* just like 'Name' version */
 		printf("BEFORE append ccnd id component\n");
 		ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
@@ -1255,6 +1246,8 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 		ccn_charbuf_append(cb, h->ccnd_id, sizeof(h->ccnd_id));
 		ccn_charbuf_append_closer(cb); // </component>
 		ccn_charbuf_append_closer(cb); // </router>
+
+		// append other part to cb from original content
 		ccn_charbuf_append_closer(cb); // </SignedInfo>
 		m = pc->offset[CCN_PCO_B_Content];
 		ccn_charbuf_append(cb, (content->key)+m, (content->size)-m);
@@ -1269,27 +1262,27 @@ printf("START OF send_content / h->forTrace:%d\n", h->forTrace);
 		//debug
 		
 		//debug
-		printf("TEST <router> tag is inserted well\n");
+		printf("TEST <router> tag is well appended by parsing it\n");
 		router_comps = ccn_indexbuf_create();
 		ccn_parse_ContentObject_with_Router(cb->buf, cb->length, pc, NULL, router_comps);
-		int i = router_comps->buf[router_comps->n - 1];
-		printf(" !! n = %d / i = %d !!", router_comps->n, i);
-		ccn_indexbuf_destroy(router_comps);
+		int i;
+		printf("end parsing, (%d components) - ", router_comps->n);
+		for(i = 0; i < router_comps->n; i++)
+			printf("(%d)%d ", i, router_comps->buf[i]);
+		printf("\n");
+		ccn_indexbuf_destroy(&router_comps);
 		//debug
-
-		printf("START BEFORE stuff_and_send \n");
 
     	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
 
 		h->forTrace = 0;
+		printf("END OF send_content\n");
 	}
 	else {
 	   	stuff_and_send(h, face, content->key, a, content->key + b, size - b);
 	}
     ccnd_meter_bump(h, face->meter[FM_DATO], 1);
     h->content_items_sent += 1;
-
-	printf("END OF send_content\n");
 }
 
 static enum cq_delay_class
