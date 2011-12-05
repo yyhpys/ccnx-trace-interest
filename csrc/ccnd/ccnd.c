@@ -1151,9 +1151,12 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
     if (b - a != 36)
         abort(); /* strange digest length */
 
-	int for_trace = h->forTrace; // test if this content is for trace
 
-	if (for_trace) {
+	printf("send_content start: content name: %s\n",get_interest_name(content->key, content->size));
+	int for_trace1 = h->forTrace; // test if this content is for trace
+
+	int for_trace2 = is_interest_for_trace(content->key, content->size);
+	if (for_trace1 || for_trace2) {
 		printf("FOR TRACE IN send_content \n");
 
 		struct ccn_charbuf *cb = ccn_charbuf_create();
@@ -1220,7 +1223,7 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 			ccn_parse_ContentObject_with_Router(content->key, content->size, pc, NULL, router_comps);
 			i = router_comps->buf[router_comps->n - 1];
 			ccn_charbuf_append(cb, content->key, i);
-			ccn_indexbuf_destroy(router_comps);
+			//ccn_indexbuf_destroy(router_comps);
 		}
 
 		/*
@@ -1279,6 +1282,7 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		printf("END OF send_content\n");
 	}
 	else {
+		printf("send_content : not trace flag case\n");
 	   	stuff_and_send(h, face, content->key, a, content->key + b, size - b);
 	}
     ccnd_meter_bump(h, face->meter[FM_DATO], 1);
@@ -4070,8 +4074,10 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
         goto Bail;
     }
 	if(is_interest_for_trace(msg, size)){
+		printf("h->forTrace set to 1\n");
 		h->forTrace = 1;
 	}
+	printf("h->forTrace : %d\n",h->forTrace);
     ccnd_meter_bump(h, face->meter[FM_DATI], 1);
     if (comps->n < 1 ||
         (keysize = comps->buf[comps->n - 1]) > 65535 - 36) {
@@ -4169,6 +4175,7 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
     }
     hashtb_end(e);
 Bail:
+	printf("Bail: h->forTrace : %d\n",h->forTrace);
     indexbuf_release(h, comps);
     charbuf_release(h, cb);
     cb = NULL;
