@@ -1223,7 +1223,7 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 			ccn_parse_ContentObject_with_Router(content->key, content->size, pc, NULL, router_comps);
 			i = router_comps->buf[router_comps->n - 1];
 			ccn_charbuf_append(cb, content->key, i);
-			//ccn_indexbuf_destroy(router_comps);
+			ccn_indexbuf_destroy(&router_comps);
 		}
 
 		/*
