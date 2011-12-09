@@ -19,6 +19,12 @@ IsolatePubID () {
 	sed -n -e 's@^.*Router><Component ccnbencoding="hexBinary">@@' \
                -e 's@</Router.*$@@p'
 }
-sudo ccnget $1/trace_interest_flag
-sudo ccn_ccnbtoxml -bx $HOME/.ccnx/.traceccnb | IsolatePubID | sed -e 's/<\/Component>//g' | sed -e 's/<Component ccnbencoding="hexBinary">/\n/g'
-sudo rm -rf $HOME/.ccnx/.traceccnb
+
+if [ $# != 1 ]
+then
+	echo usage : ./traceinterest ccnx:/...
+else
+	sudo ccnget $1/trace_interest_flag
+	sudo ccn_ccnbtoxml -bx $HOME/.ccnx/.traceccnb | IsolatePubID | sed -e 's/<\/Component>//g' | sed -e 's/<Component ccnbencoding="hexBinary">/\n/g'
+	sudo rm -rf $HOME/.ccnx/.traceccnb
+fi
