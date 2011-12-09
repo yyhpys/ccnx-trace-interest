@@ -37,10 +37,6 @@ public class ccngetfile implements Usage {
 	/**
 	 * @param args
 	 */
-	public static String removeFlag(String s){
-		String res = s.replace("/trace_interest_flag","");
-		return res;
-	}
 	public static void main(String[] args) {
 		
 		for (int i = 0; i < args.length - 2; i++) {
@@ -64,9 +60,6 @@ public class ccngetfile implements Usage {
 			// Ideally want to use newVersion to get latest version. Start
 			// with random version.
 			ContentName argName = ContentName.fromURI(args[CommonParameters.startArg]);
-			ContentName noFlagName = ContentName.fromURI(removeFlag(argName.toString()));
-			System.out.println("argName : "+argName.toString());
-			System.out.println("noFlagName : "+noFlagName.toString());
 			CCNHandle handle = CCNHandle.open();
 
 			File theFile = new File(args[CommonParameters.startArg + 1]);
@@ -78,9 +71,9 @@ public class ccngetfile implements Usage {
 			long starttime = System.currentTimeMillis();
 			CCNInputStream input;
 			if (CommonParameters.unversioned)
-				input = new CCNInputStream(noFlagName, handle);
+				input = new CCNInputStream(argName, handle);
 			else
-				input = new CCNFileInputStream(noFlagName, handle);
+				input = new CCNFileInputStream(argName, handle);
 			if (CommonParameters.timeout != null) {
 				input.setTimeout(CommonParameters.timeout); 
 			}
