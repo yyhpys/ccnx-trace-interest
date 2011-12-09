@@ -1165,13 +1165,15 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		struct ccn_indexbuf *router_comps;
 		struct ccn_indexbuf *name_comps = ccn_indexbuf_create();
 		int m;
+		char filename[100];
 
+		char *s = getenv("HOME");
 		//debug
-		FILE *fp1 = fopen("./before_name_append", "w");
-		FILE *fp2 = fopen("./after_name_append","w");
-		FILE *fp3 = fopen("./after_ccndid_append","w");
 		//debug
-
+	
+		FILE *fp;
+		sprintf(filename,"%s/.ccnx/.traceccnb",s);
+		fp = fopen(filename,"w");
 		ccn_parse_ContentObject(content->key, content->size, pc, name_comps);
 
 		// if content name doesnot have trace flag
@@ -1182,15 +1184,6 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 			int j = pc->offset[CCN_PCO_E_KeyLocator];
 			int k = pc->offset[CCN_PCO_E_Name];
 			printf("before flag append : %s\n", get_interest_name(content->key, content->size));
-
-			//debug
-			if (fp1) {
-				int i;
-				for (i = 0; i < content->size; i++)
-					fputc( (content->key)[i], fp1);
-				fclose(fp1);
-			}
-			//debug
 		
 			ccn_charbuf_append(cb, content->key, i);
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Component, CCN_DTAG);
@@ -1199,15 +1192,6 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 			ccn_charbuf_append_closer(cb); // </component>
 			ccn_charbuf_append(cb, content->key+i, j-i);
 
-			//debug
-			if (fp2) {
-				int i;
-				for (i = 0; i < cb->length; i++)
-					fputc( (cb->buf)[i], fp2);
-				fclose(fp2);
-			}
-			//debug
-		
 			ccn_charbuf_append_tt(cb, CCN_DTAG_Router, CCN_DTAG);
 
 			printf("after flag append : %s\n", get_interest_name(cb->buf, cb->length));
@@ -1256,11 +1240,11 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		ccn_charbuf_append(cb, (content->key)+m, (content->size)-m);
 		
 		//debug
-		if (fp3) {
+		if (fp) {
 			int i;
 			for (i = 0; i < cb->length; i++)
-				fputc( (cb->buf)[i], fp3);
-			fclose(fp3);
+				fputc( (cb->buf)[i], fp);
+			fclose(fp);
 		}
 		//debug
 		
@@ -3913,6 +3897,9 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 				printf("real cs match!!\n");
 	    	}
             if (content != NULL) {
+				if(for_trace)
+					h->forTrace = 1;
+
                 /* Check to see if we are planning to send already */
                 enum cq_delay_class c;
                 for (c = 0, k = -1; c < CCN_CQ_N && k == -1; c++)
