@@ -24,7 +24,30 @@ if [ $# != 1 ]
 then
 	echo usage : ./traceinterest ccnx:/...
 else
+	echo "tracing interest for $1..."
 	sudo ccnget $1/trace_interest_flag
-	sudo ccn_ccnbtoxml -bx $HOME/.ccnx/.traceccnb | IsolatePubID | sed -e 's/<\/Component>//g' | sed -e 's/<Component ccnbencoding="hexBinary">/\n/g'
-	sudo rm -rf $HOME/.ccnx/.traceccnb
+	sudo ccn_ccnbtoxml -bx $HOME/.ccnx/.traceccnb | IsolatePubID | sed -e 's/<\/Component>//g' | sed -e 's/<Component ccnbencoding="hexBinary">/\n/g' > $HOME/.interest_path
+#(sudo ccn_ccnbtoxml -bx $HOME/.ccnx/.traceccnb 2> $HOME/.stderr) | IsolatePubID | sed -e 's/<\/Component>//g' | sed -e 's/<Component ccnbencoding="hexBinary">/\n/g' > $HOME/.interest_path
+#sudo rm -rf $HOME/.ccnx/.traceccnb
+#sudo rm -rf $HOME/.stderr
+# Count number of lines
+	cnt=0
+	while read temp
+	do
+		cnt=$(($cnt+1))
+	done < $HOME/.interest_path
+# Print .interest_path file from last line to first line
+	i=$cnt
+	node_num=1
+	while [ $i -gt 0 ]
+	do
+		line=$( cat $HOME/.interest_path | sed ${i}\!d )
+		echo "$node_num : $line"
+		i=$(($i-1))
+		node_num=$(($node_num+1))
+	done
+	echo "end"
+	sudo rm -rf $HOME/.interest_path
 fi
+
+
