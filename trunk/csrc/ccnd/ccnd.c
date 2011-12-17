@@ -3897,8 +3897,8 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 				printf("real cs match!!\n");
 	    	}
             if (content != NULL) {
-				if(for_trace)
-					h->forTrace = 1;
+				//if(for_trace)
+				  // h->forTrace = 1;
 
                 /* Check to see if we are planning to send already */
                 enum cq_delay_class c;
