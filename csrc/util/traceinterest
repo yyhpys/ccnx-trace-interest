@@ -28,7 +28,7 @@ else
 	sudo ccnget $1/trace_interest_flag
 	sudo ccn_ccnbtoxml -bx $HOME/.ccnx/.traceccnb | IsolatePubID | sed -e 's/<\/Component>//g' | sed -e 's/<Component ccnbencoding="hexBinary">/\n/g' > $HOME/.interest_path
 #(sudo ccn_ccnbtoxml -bx $HOME/.ccnx/.traceccnb 2> $HOME/.stderr) | IsolatePubID | sed -e 's/<\/Component>//g' | sed -e 's/<Component ccnbencoding="hexBinary">/\n/g' > $HOME/.interest_path
-#sudo rm -rf $HOME/.ccnx/.traceccnb
+  sudo rm -rf $HOME/.ccnx/.traceccnb
 #sudo rm -rf $HOME/.stderr
 # Count number of lines
 	cnt=0
