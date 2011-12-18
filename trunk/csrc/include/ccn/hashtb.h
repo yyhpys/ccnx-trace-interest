@@ -108,6 +108,8 @@ void hashtb_next(struct hashtb_enumerator *);
 int
 hashtb_seek(struct hashtb_enumerator *hte,
             const void *key, size_t keysize, size_t extsize);
+int hashtb_seek_forTrace(struct hashtb_enumerator *hte,
+            const void *key, size_t keysize, size_t extsize);
 #define HT_OLD_ENTRY 0
 #define HT_NEW_ENTRY 1
 

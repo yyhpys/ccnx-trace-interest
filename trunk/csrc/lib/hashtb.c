@@ -257,6 +257,51 @@ hashtb_seek(struct hashtb_enumerator *hte, const void *key, size_t keysize, size
     return(HT_NEW_ENTRY);
 }
 
+int
+hashtb_seek_forTrace(struct hashtb_enumerator *hte, const void *key, size_t keysize, size_t extsize)
+{
+    struct node *p = NULL;
+    struct hashtb *ht = hte->ht;
+    struct node **pp;
+    size_t h;
+    if (key == NULL) {
+        setpos(hte, NULL);
+        return(-1);
+    }
+    if (ht->refcount == 1 && ht->n > ht->n_buckets * 3) {
+        ht->refcount--;
+        hashtb_rehash(ht, 2 * ht->n + 1);
+        ht->refcount++;
+    }
+    h = hashtb_hash(key, keysize);
+    pp = &(ht->bucket[h % ht->n_buckets]);
+    for (p = *pp; p != NULL; pp = &(p->link), p = p->link) {
+        if (p->hash < h)
+            continue;
+        if (p->hash > h)
+            break;
+        if (keysize == p->keysize && 0 == memcmp(key, KEY(ht, p), keysize)) {
+            setpos(hte, pp);
+            return(HT_OLD_ENTRY);
+        }
+    }
+    p = calloc(1, sizeof(*p) + ht->item_size + keysize + extsize);
+    if (p == NULL) {
+        setpos(hte, NULL);
+        return(-1);
+    }
+    //memcpy(KEY(ht, p), key, keysize + extsize);
+    p->hash = h;
+    p->keysize = keysize;
+    p->extsize = extsize;
+    p->link = *pp;
+    *pp = p;
+    hte->ht->n += 1;
+    setpos(hte, pp);
+    return(HT_NEW_ENTRY);
+}
+
+
 void
 hashtb_delete(struct hashtb_enumerator *hte)
 {
