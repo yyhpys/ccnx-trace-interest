@@ -111,6 +111,7 @@ static void ccn_append_link_stuff(struct ccnd_handle *h,
 static int process_incoming_link_message(struct ccnd_handle *h,
                                          struct face *face, enum ccn_dtag dtag,
                                          unsigned char *msg, size_t size);
+static int remove_content(struct ccnd_handle *h, struct content_entry *content);
 
 static int
 is_interest_for_trace(const unsigned char *msg, size_t size);
@@ -1261,6 +1262,8 @@ send_content(struct ccnd_handle *h, struct face *face, struct content_entry *con
 		//debug
 
     	stuff_and_send(h, face, cb->buf, a, cb->buf + b, cb->length - b);
+
+       	remove_content(h, content);
 
 		h->forTrace = 0;
 		printf("END OF send_content\n");
@@ -3755,7 +3758,7 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
         npe = e->data;
 
 
-		printf(">>>>>>>>> %s\n", get_interest_name(msg, size)); // debug
+		printf(">>>>interest>>>>> %s\n", get_interest_name(msg, size)); // debug
 		/* test if the name is flagged */
 		for_trace = is_interest_for_trace(msg, size);
 		if (for_trace) {
@@ -4058,6 +4061,8 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
     msg = wire_msg;
     size = wire_size;
     
+	printf(">>>>content>>>>> %s\n", get_interest_name(msg, size)); // debug
+
     res = ccn_parse_ContentObject(msg, size, &obj, comps);
     if (res < 0) {
         ccnd_msg(h, "error parsing ContentObject - code %d", res);
@@ -4110,16 +4115,19 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
     tail = msg + keysize;
     tailsize = size - keysize;
     hashtb_start(h->content_tab, e);
+	/*
 	if (fortrace)
 	{
 		printf("IN incoming_content : fortrace\n");
-    	res = hashtb_seek_forTrace(e, msg, keysize, tailsize);
+    	res = hashtb_seek(e, msg, keysize, tailsize);
 	}
 	else
 	{
 		printf("IN incoming_content : not fortrace\n");
     	res = hashtb_seek(e, msg, keysize, tailsize);
 	}
+	*/
+    res = hashtb_seek(e, msg, keysize, tailsize);
     content = e->data;
     if (res == HT_OLD_ENTRY) {
         if (tailsize != e->extsize ||
@@ -4157,6 +4165,7 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
         content->key_size = e->keysize;
         content->size = e->keysize + e->extsize;
         content->key = e->key;
+
         if (content->comps != NULL) {
             for (i = 0; i < comps->n; i++)
                 content->comps[i] = comps->buf[i];
@@ -4173,7 +4182,8 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
         /* Mark public keys supplied at startup as precious. */
         if (obj.type == CCN_CONTENT_KEY && content->accession <= (h->capacity + 7)/8)
             content->flags |= CCN_CONTENT_ENTRY_PRECIOUS;
-    }
+
+   }
     hashtb_end(e);
 Bail:
 	printf("Bail: h->forTrace : %d\n",h->forTrace);
@@ -4185,8 +4195,9 @@ Bail:
         enum cq_delay_class c;
         struct content_queue *q;
         n_matches = match_interests(h, content, &obj, NULL, face);
+		printf("n_matches : %d\n", n_matches);
         if (res == HT_NEW_ENTRY) {
-            if (n_matches < 0) {
+           if (n_matches < 0) {
                 remove_content(h, content);
                 return;
             }
@@ -4211,6 +4222,7 @@ Bail:
             }
         }
     }
+		
 	if(h->forTrace)
 		h->forTrace = 0;
 }
