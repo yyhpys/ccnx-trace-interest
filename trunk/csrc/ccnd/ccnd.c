@@ -3897,8 +3897,10 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 				printf("real cs match!!\n");
 	    	}
             if (content != NULL) {
+
 				if(for_trace)
-				  h->forTrace = 1;
+					h->forTrace = 1;
+
 
                 /* Check to see if we are planning to send already */
                 enum cq_delay_class c;
@@ -4146,11 +4148,7 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
     }
     else if (res == HT_NEW_ENTRY) {
         content->accession = ++(h->accession);
-
-		if(!is_interest_for_trace(msg, size))
-	    	enroll_content(h, content);
-		else
-			printf("NO ENROLLMENT!");
+      	enroll_content(h, content);
 
         if (content == content_from_accession(h, content->accession)) {
             content->ncomps = comps->n;
