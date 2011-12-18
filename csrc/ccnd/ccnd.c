@@ -3897,8 +3897,8 @@ process_incoming_interest(struct ccnd_handle *h, struct face *face,
 				printf("real cs match!!\n");
 	    	}
             if (content != NULL) {
-				//if(for_trace)
-				  // h->forTrace = 1;
+				if(for_trace)
+				  h->forTrace = 1;
 
                 /* Check to see if we are planning to send already */
                 enum cq_delay_class c;
@@ -4051,6 +4051,7 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
     int i;
     struct ccn_indexbuf *comps = indexbuf_obtain(h);
     struct ccn_charbuf *cb = charbuf_obtain(h);
+	int fortrace = 0;
     
     msg = wire_msg;
     size = wire_size;
@@ -4061,6 +4062,7 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
         goto Bail;
     }
 	if(is_interest_for_trace(msg, size)){
+		fortrace = 1;
 		printf("h->forTrace set to 1\n");
 		h->forTrace = 1;
 	}
@@ -4106,7 +4108,16 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
     tail = msg + keysize;
     tailsize = size - keysize;
     hashtb_start(h->content_tab, e);
-    res = hashtb_seek(e, msg, keysize, tailsize);
+	if (fortrace)
+	{
+		printf("IN incoming_content : fortrace\n");
+    	res = hashtb_seek_forTrace(e, msg, keysize, tailsize);
+	}
+	else
+	{
+		printf("IN incoming_content : not fortrace\n");
+    	res = hashtb_seek(e, msg, keysize, tailsize);
+	}
     content = e->data;
     if (res == HT_OLD_ENTRY) {
         if (tailsize != e->extsize ||
@@ -4135,7 +4146,12 @@ process_incoming_content(struct ccnd_handle *h, struct face *face,
     }
     else if (res == HT_NEW_ENTRY) {
         content->accession = ++(h->accession);
-        enroll_content(h, content);
+
+		if(!is_interest_for_trace(msg, size))
+	    	enroll_content(h, content);
+		else
+			printf("NO ENROLLMENT!");
+
         if (content == content_from_accession(h, content->accession)) {
             content->ncomps = comps->n;
             content->comps = calloc(comps->n, sizeof(comps[0]));
